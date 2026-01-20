@@ -1375,7 +1375,7 @@ const handleSubmit = () => {
               ) : (
                 <>
                   <div className="flex items-center gap-2">
-                    <Upload className="h-6 w-6 text-muted-foreground" />
+                    <CloudUpload className="h-6 w-6 text-muted-foreground" />
                     <ImageIcon className="h-6 w-6 text-muted-foreground" />
                   </div>
                   <span className="text-sm font-medium">Upload photos of meals you love</span>
