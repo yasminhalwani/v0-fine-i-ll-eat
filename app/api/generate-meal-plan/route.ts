@@ -1,141 +1,119 @@
-import { generateObject } from "ai";
-import { z } from "zod";
+import { normalizePreferences, selectMeal, type MealPreferences } from "@/lib/meal-filter";
+import { generateShoppingList } from "@/lib/shopping-list";
+import { Meal } from "@/lib/meal-database";
 
-const mealSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string(),
-  prepTime: z.string(),
-  servings: z.number(),
-  tags: z.array(z.string()),
-  ingredients: z.array(z.string()),
-});
+interface DayPlan {
+  day: string;
+  breakfast: Meal;
+  lunch: Meal;
+  dinner: Meal;
+}
 
-const dayPlanSchema = z.object({
-  day: z.string(),
-  breakfast: mealSchema,
-  lunch: mealSchema,
-  dinner: mealSchema,
-});
+interface ShoppingItem {
+  item: string;
+  quantity: string;
+  category: string;
+}
 
-const shoppingItemSchema = z.object({
-  item: z.string(),
-  quantity: z.string(),
-  category: z.string(),
-});
+const DAYS_OF_WEEK = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
 
-const weeklyPlanSchema = z.object({
-  plan: z.array(dayPlanSchema),
-  shoppingList: z.array(shoppingItemSchema),
-});
+// Create placeholder meal for eating out
+function createEatingOutMeal(mealType: "breakfast" | "lunch" | "dinner"): Meal {
+  return {
+    id: `out-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    name: "Eating Out",
+    description: "This meal slot is reserved for dining out or ordering in",
+    prepTime: "0 min",
+    servings: 1,
+    tags: ["Eating Out"],
+    ingredients: [],
+    mealType,
+    cuisine: [],
+    proteinSources: [],
+    carbSources: [],
+    fatSources: [],
+    estimatedCalories: 0,
+    estimatedProtein: 0,
+    estimatedCarbs: 0,
+    estimatedFats: 0,
+    containsAllergens: [],
+    dietaryRestrictions: [],
+    medicalFriendly: [],
+    medicationSafe: [],
+  };
+}
+
+// Check if a meal slot should be eating out
+function isEatingOut(day: string, mealType: "breakfast" | "lunch" | "dinner", eatingOutMeals: string[]): boolean {
+  const mealKey = `${day} ${mealType.charAt(0).toUpperCase() + mealType.slice(1)}`;
+  return eatingOutMeals.includes(mealKey);
+}
 
 export async function POST(req: Request) {
-  const {
-    calories,
-    proteinPercent,
-    carbsPercent,
-    fatsPercent,
-    proteinSources,
-    carbSources,
-    fatSources,
-    allergies,
-    medicalConditions,
-    medications,
-    restrictions,
-    cuisines,
-    cuisineNotes,
-    recipeInventory,
-    fridgeInventory,
-    mealServiceMeals,
-    eatingOutMeals,
-    mealExamples,
-    additionalNotes,
-  } = await req.json();
+  try {
+    const raw = await req.json();
+    const preferences: MealPreferences = normalizePreferences(raw);
 
-  const proteinGrams = Math.round((calories * (proteinPercent / 100)) / 4);
-  const carbsGrams = Math.round((calories * (carbsPercent / 100)) / 4);
-  const fatsGrams = Math.round((calories * (fatsPercent / 100)) / 9);
+  const weeklyPlan: DayPlan[] = [];
+  const allMeals: Meal[] = [];
+  const usedMealNames: string[] = [];
 
-  const { object } = await generateObject({
-    model: "anthropic/claude-sonnet-4-20250514",
-    schema: weeklyPlanSchema,
-    prompt: `You are a professional nutritionist and meal planner. Create a complete weekly meal plan (Monday through Sunday) based on the following preferences:
+  // Generate meal plan for each day
+  for (const day of DAYS_OF_WEEK) {
+    const breakfast = isEatingOut(day, "breakfast", preferences.eatingOutMeals)
+      ? createEatingOutMeal("breakfast")
+      : selectMeal("breakfast", preferences, usedMealNames);
 
-DAILY NUTRITIONAL TARGETS:
-- Total Calories: ${calories} kcal/day
-- Protein: ${proteinPercent}% (${proteinGrams}g/day)
-- Carbohydrates: ${carbsPercent}% (${carbsGrams}g/day)
-- Fats: ${fatsPercent}% (${fatsGrams}g/day)
+    const lunch = isEatingOut(day, "lunch", preferences.eatingOutMeals)
+      ? createEatingOutMeal("lunch")
+      : selectMeal("lunch", preferences, usedMealNames);
 
-PREFERRED PROTEIN SOURCES: ${proteinSources.length > 0 ? proteinSources.join(", ") : "Any protein sources"}
+    const dinner = isEatingOut(day, "dinner", preferences.eatingOutMeals)
+      ? createEatingOutMeal("dinner")
+      : selectMeal("dinner", preferences, usedMealNames);
 
-PREFERRED CARBOHYDRATE SOURCES: ${carbSources.length > 0 ? carbSources.join(", ") : "Any carb sources"}
+    // Track used meals to avoid repetition
+    if (breakfast.name !== "Eating Out") {
+      usedMealNames.push(breakfast.name);
+      allMeals.push(breakfast);
+    }
+    if (lunch.name !== "Eating Out") {
+      usedMealNames.push(lunch.name);
+      allMeals.push(lunch);
+    }
+    if (dinner.name !== "Eating Out") {
+      usedMealNames.push(dinner.name);
+      allMeals.push(dinner);
+    }
 
-PREFERRED FAT SOURCES: ${fatSources.length > 0 ? fatSources.join(", ") : "Any fat sources"}
+    weeklyPlan.push({
+      day,
+      breakfast,
+      lunch,
+      dinner,
+    });
+  }
 
-FOOD ALLERGIES (STRICTLY AVOID): ${allergies.length > 0 ? allergies.join(", ") : "None"}
+  // Generate shopping list (exclude eating out meals)
+  const shoppingList = generateShoppingList(allMeals, preferences.fridgeInventory);
 
-MEDICAL CONDITIONS (IMPORTANT - adapt meals accordingly): ${medicalConditions?.length > 0 ? medicalConditions.join(", ") : "None"}
-${medicalConditions?.length > 0 ? "Consider the dietary implications of these conditions when planning meals (e.g., low glycemic for diabetes, low sodium for hypertension, low purine for gout, etc.)" : ""}
-
-CURRENT MEDICATIONS (CRITICAL - check for food-drug interactions): ${medications?.length > 0 ? medications.join(", ") : "None"}
-${medications?.length > 0 ? `IMPORTANT: Avoid foods that interact negatively with these medications. Common interactions to watch for:
-- Warfarin: Avoid high vitamin K foods (leafy greens), grapefruit, cranberry
-- Statins: Avoid grapefruit and grapefruit juice
-- MAO Inhibitors: Avoid tyramine-rich foods (aged cheese, cured meats, fermented foods, soy sauce)
-- ACE Inhibitors/Lisinopril: Limit high potassium foods (bananas, oranges, potatoes)
-- Levothyroxine: Avoid soy, high-fiber foods, calcium near dose time
-- Methotrexate: Avoid alcohol
-- Blood thinners: Limit vitamin E, excessive garlic, fish oil
-- Calcium Channel Blockers: Avoid grapefruit` : ""}
-
-DIETARY RESTRICTIONS: ${restrictions.length > 0 ? restrictions.join(", ") : "None specified"}
-
-PREFERRED CUISINES: ${cuisines.length > 0 ? cuisines.join(", ") : "Any cuisine"}
-
-CUISINE & FLAVOR PREFERENCES: ${cuisineNotes || "Not specified"}
-
-USER'S RECIPE INVENTORY (prioritize including these when appropriate): ${recipeInventory?.length > 0 ? recipeInventory.join("; ") : "None provided"}
-
-ITEMS ALREADY IN FRIDGE/PANTRY (use these first, exclude from shopping list): ${fridgeInventory?.length > 0 ? fridgeInventory.join(", ") : "None specified"}
-
-MEALS FROM MEAL DELIVERY SERVICE THIS WEEK (avoid duplicating these, complement them): ${mealServiceMeals?.length > 0 ? mealServiceMeals.join("; ") : "None"}
-
-MEALS EATING OUT / ORDERING IN (DO NOT PLAN THESE - user will eat at restaurant or order delivery): ${eatingOutMeals?.length > 0 ? eatingOutMeals.join(", ") : "None"}
-
-MEALS THE USER ENJOYS: ${mealExamples || "Not specified"}
-
-ADDITIONAL NOTES: ${additionalNotes || "None"}
-
-Generate a balanced, varied, and delicious meal plan. Each meal should:
-- STRICTLY AVOID all listed allergies - this is critical for safety
-- CAREFULLY consider medical conditions and adapt meals accordingly (e.g., low sugar for diabetics, low sodium for hypertension)
-- Respect ALL dietary restrictions
-- Use the preferred ingredient sources when possible
-- Aim to meet the daily macro targets when combined (breakfast ~25%, lunch ~35%, dinner ~40% of daily calories)
-- Incorporate the preferred cuisines and flavor preferences when possible
-- PRIORITIZE recipes from the user's recipe inventory - try to include several throughout the week
-- Be inspired by the meal examples when relevant
-- Include realistic prep times
-- Have 4-6 ingredients listed
-- Include 2-3 relevant tags (like "High Protein", "Quick", "Comfort Food", etc.)
-- Have a brief, appetizing description
-
-IMPORTANT CONSIDERATIONS:
-- If the user has meals from a meal delivery service, DO NOT plan meals for those slots. Instead, complement those meals with your suggestions for other meals.
-- For meals the user is EATING OUT or ORDERING IN, generate a placeholder meal with name "Eating Out" or "Restaurant/Takeout", empty ingredients, and a note that this slot is reserved for dining out. Do NOT add ingredients to the shopping list for these meals.
-- Try to use ingredients from the fridge inventory first before suggesting new ingredients.
-- Make sure meals are varied throughout the week and nutritionally balanced.
-- Generate unique IDs for each meal.
-
-SHOPPING LIST:
-Also generate a complete shopping list for the week that:
-- Lists all ingredients needed for the generated meals
-- EXCLUDES any items the user already has in their fridge/pantry
-- Groups items by category (Produce, Protein, Dairy, Grains & Pasta, Pantry Staples, Spices & Seasonings, etc.)
-- Includes approximate quantities needed for the week
-- Combines duplicate ingredients across meals into single entries with total quantities`,
-  });
-
-  return Response.json(object);
+    return Response.json({
+      plan: weeklyPlan,
+      shoppingList,
+    });
+  } catch (error) {
+    console.error("Failed to generate meal plan:", error);
+    return Response.json(
+      { error: "Failed to generate meal plan" },
+      { status: 500 }
+    );
+  }
 }

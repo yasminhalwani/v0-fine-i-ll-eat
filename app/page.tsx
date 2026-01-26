@@ -34,6 +34,11 @@ export default function MealPlannerPage() {
         body: JSON.stringify(prefs),
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to generate meal plan");
+      }
+
       const data = await response.json();
       setWeeklyPlan(data.plan);
       setShoppingList(data.shoppingList || []);
@@ -63,6 +68,11 @@ export default function MealPlannerPage() {
           currentMealName: currentMeal.name,
         }),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to regenerate meal");
+      }
 
       const newMeal = await response.json();
 
@@ -101,6 +111,10 @@ export default function MealPlannerPage() {
             currentMealName: currentMeals?.[mealType]?.name || "",
           }),
         });
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText || "Failed to regenerate meal");
+        }
         return { mealType, meal: await response.json() };
       });
 
@@ -134,6 +148,11 @@ export default function MealPlannerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(preferences),
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to regenerate meal plan");
+      }
 
       const data = await response.json();
       setWeeklyPlan(data.plan);
