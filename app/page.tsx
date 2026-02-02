@@ -17,6 +17,7 @@ export default function MealPlannerPage() {
   const [weeklyPlan, setWeeklyPlan] = useState<DayPlan[] | null>(null);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [usedLlm, setUsedLlm] = useState<boolean | null>(null);
+  const [fallbackReason, setFallbackReason] = useState<"no_api_key" | "llm_error" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [regeneratingMeal, setRegeneratingMeal] = useState<{
     dayIndex: number;
@@ -44,6 +45,7 @@ export default function MealPlannerPage() {
       setWeeklyPlan(data.plan);
       setShoppingList(data.shoppingList || []);
       setUsedLlm(data.usedLlm ?? null);
+      setFallbackReason(data.fallbackReason ?? null);
     } catch (error) {
       console.error("Failed to generate meal plan:", error);
     } finally {
@@ -160,6 +162,7 @@ export default function MealPlannerPage() {
       setWeeklyPlan(data.plan);
       setShoppingList(data.shoppingList || []);
       setUsedLlm(data.usedLlm ?? null);
+      setFallbackReason(data.fallbackReason ?? null);
     } catch (error) {
       console.error("Failed to regenerate meal plan:", error);
     } finally {
@@ -171,6 +174,7 @@ export default function MealPlannerPage() {
     setWeeklyPlan(null);
     setShoppingList([]);
     setUsedLlm(null);
+    setFallbackReason(null);
   };
 
   const LOADING_MESSAGES = [
@@ -224,9 +228,19 @@ export default function MealPlannerPage() {
               >
                 <Info className="h-5 w-5 shrink-0 mt-0.5 text-amber-400" />
                 <div>
-                  <p className="font-medium text-foreground">Using built-in meal database</p>
+                  <p className="font-medium text-foreground">
+                    {fallbackReason === "no_api_key"
+                      ? "API key not set"
+                      : fallbackReason === "llm_error"
+                        ? "AI request failed"
+                        : "Using built-in meal database"}
+                  </p>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    AI wasn’t available for this request, so your plan was generated from our curated meal database. You still get a full week of meals and a shopping list.
+                    {fallbackReason === "no_api_key"
+                      ? "Add OPENROUTER_API_KEY in Vercel → Project → Settings → Environment Variables (Production), then redeploy."
+                      : fallbackReason === "llm_error"
+                        ? "The AI request timed out or returned an error. On Vercel Hobby (10s limit) use the static database or upgrade to Pro. You can also set OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct for a faster model."
+                        : "AI wasn’t available for this request, so your plan was generated from our curated meal database. You still get a full week of meals and a shopping list."}
                   </p>
                 </div>
               </div>

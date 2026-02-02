@@ -103,6 +103,13 @@ export async function POST(req: Request) {
     const preferences: MealPreferences = normalizePreferences(raw);
     const apiKey = (process.env.OPENROUTER_API_KEY ?? process.env.OPENROUTER_KEY ?? "").trim().replace(/^["']|["']$/g, "");
     const useLlm = !!apiKey;
+    let fallbackReason: "no_api_key" | "llm_error" | null = useLlm ? null : "no_api_key";
+
+    if (!useLlm) {
+      console.warn(
+        "[generate-meal-plan] OPENROUTER_API_KEY not set. Add it in Vercel → Project → Settings → Environment Variables (Production), then redeploy."
+      );
+    }
 
     if (useLlm) {
       try {
@@ -141,7 +148,14 @@ export async function POST(req: Request) {
         const shoppingList = generateShoppingList(allMeals, preferences.fridgeInventory);
         return Response.json({ plan: weeklyPlan, shoppingList, usedLlm: true });
       } catch (llmError) {
-        console.error("LLM meal plan failed, falling back to static database:", llmError);
+        fallbackReason = "llm_error";
+        const message = llmError instanceof Error ? llmError.message : String(llmError);
+        console.error("[generate-meal-plan] LLM failed, falling back to static database:", message);
+        if (message.includes("timeout") || message.includes("aborted")) {
+          console.warn(
+            "[generate-meal-plan] Tip: Vercel Hobby allows 10s; Pro allows 60s. Set OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct for faster responses."
+          );
+        }
         // Fall through to static plan
       }
     }
@@ -177,7 +191,7 @@ export async function POST(req: Request) {
     }
 
     const shoppingList = generateShoppingList(allMeals, preferences.fridgeInventory);
-    return Response.json({ plan: weeklyPlan, shoppingList, usedLlm: false });
+    return Response.json({ plan: weeklyPlan, shoppingList, usedLlm: false, fallbackReason: fallbackReason ?? undefined });
   } catch (error) {
     console.error("Failed to generate meal plan:", error);
     return Response.json(
