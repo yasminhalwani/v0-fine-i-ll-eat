@@ -25,3 +25,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# saved LLM responses (optional: remove this line to track outputs)
+/outputs/

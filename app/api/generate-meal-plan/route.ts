@@ -1,7 +1,24 @@
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
 import { normalizePreferences, selectMeal, type MealPreferences } from "@/lib/meal-filter";
 import { generateShoppingList } from "@/lib/shopping-list";
 import { Meal, coerceToMeal } from "@/lib/meal-database";
 import { promptLlmWithTemplate, parseJsonFromLlmResponse } from "@/lib/prompt-llm";
+
+async function saveLlmResponseToFile(responseText: string): Promise<void> {
+  try {
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")
+      .slice(0, 23);
+    const outDir = path.join(process.cwd(), "outputs");
+    await mkdir(outDir, { recursive: true });
+    const filePath = path.join(outDir, `response_${timestamp}.txt`);
+    await writeFile(filePath, responseText, "utf-8");
+  } catch (err) {
+    console.warn("Could not save LLM response to file:", err);
+  }
+}
 
 // Allow route to run up to 3 min so LLM (OpenRouter) can finish weekly plan
 export const maxDuration = 180;
@@ -87,6 +104,7 @@ export async function POST(req: Request) {
       try {
         const variables = buildWeeklyPlanPromptVariables(preferences);
         const responseText = await promptLlmWithTemplate("generate-weekly-meal-plan.txt", variables);
+        await saveLlmResponseToFile(responseText);
         const parsed = parseJsonFromLlmResponse(responseText);
         const rawMeals = Array.isArray(parsed) ? parsed : [];
         const meals: Meal[] = rawMeals.slice(0, 21).map((obj, i) => {
