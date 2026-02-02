@@ -1,7 +1,7 @@
 import { normalizePreferences, selectMeal, type MealPreferences } from "@/lib/meal-filter";
 import { generateShoppingList } from "@/lib/shopping-list";
 import { Meal, coerceToMeal } from "@/lib/meal-database";
-import { promptLlmWithTemplate, parseJsonFromLlmResponse } from "@/lib/prompt-llm";
+import { readPromptFile, substitutePromptVariables, promptLlm, parseJsonFromLlmResponse } from "@/lib/prompt-llm";
 
 // Vercel: use Node runtime (required for fs, long fetch). Pro allows 60s; Hobby allows 10s.
 export const runtime = "nodejs";
@@ -114,7 +114,9 @@ export async function POST(req: Request) {
     if (useLlm) {
       try {
         const variables = buildWeeklyPlanPromptVariables(preferences);
-        const responseText = await promptLlmWithTemplate("generate-weekly-meal-plan.txt", variables);
+        const template = await readPromptFile("generate-weekly-meal-plan.txt");
+        const promptUsed = substitutePromptVariables(template, variables);
+        const responseText = await promptLlm(promptUsed);
         await saveLlmResponseToFile(responseText);
         const parsed = parseJsonFromLlmResponse(responseText);
         const rawMeals = Array.isArray(parsed) ? parsed : [];
@@ -146,7 +148,7 @@ export async function POST(req: Request) {
         }
 
         const shoppingList = generateShoppingList(allMeals, preferences.fridgeInventory);
-        return Response.json({ plan: weeklyPlan, shoppingList, usedLlm: true });
+        return Response.json({ plan: weeklyPlan, shoppingList, usedLlm: true, promptUsed });
       } catch (llmError) {
         fallbackReason = "llm_error";
         const message = llmError instanceof Error ? llmError.message : String(llmError);

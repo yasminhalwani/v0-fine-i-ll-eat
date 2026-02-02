@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { PreferencesForm, type MealPreferences } from "@/components/preferences-form";
 import { WeeklyPlan, type DayPlan } from "@/components/weekly-plan";
-import { Sparkles, Loader2, Info } from "lucide-react";
+import { Sparkles, Loader2, Info, ChevronRight } from "lucide-react";
 
 
 interface ShoppingItem {
@@ -17,6 +17,7 @@ export default function MealPlannerPage() {
   const [weeklyPlan, setWeeklyPlan] = useState<DayPlan[] | null>(null);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [usedLlm, setUsedLlm] = useState<boolean | null>(null);
+  const [promptUsed, setPromptUsed] = useState<string | null>(null);
   const [fallbackReason, setFallbackReason] = useState<"no_api_key" | "llm_error" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [regeneratingMeal, setRegeneratingMeal] = useState<{
@@ -45,6 +46,7 @@ export default function MealPlannerPage() {
       setWeeklyPlan(data.plan);
       setShoppingList(data.shoppingList || []);
       setUsedLlm(data.usedLlm ?? null);
+      setPromptUsed(data.promptUsed ?? null);
       setFallbackReason(data.fallbackReason ?? null);
     } catch (error) {
       console.error("Failed to generate meal plan:", error);
@@ -162,6 +164,7 @@ export default function MealPlannerPage() {
       setWeeklyPlan(data.plan);
       setShoppingList(data.shoppingList || []);
       setUsedLlm(data.usedLlm ?? null);
+      setPromptUsed(data.promptUsed ?? null);
       setFallbackReason(data.fallbackReason ?? null);
     } catch (error) {
       console.error("Failed to regenerate meal plan:", error);
@@ -174,6 +177,7 @@ export default function MealPlannerPage() {
     setWeeklyPlan(null);
     setShoppingList([]);
     setUsedLlm(null);
+    setPromptUsed(null);
     setFallbackReason(null);
   };
 
@@ -220,6 +224,25 @@ export default function MealPlannerPage() {
 
         {weeklyPlan ? (
           <div className="space-y-4">
+            {usedLlm === true && (
+              <div className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-5 w-5 shrink-0 text-primary" />
+                  <p className="font-medium text-foreground">This plan was generated with AI</p>
+                </div>
+                {promptUsed != null && (
+                  <details className="group rounded-lg border border-border/50 bg-muted/30 overflow-hidden">
+                    <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground select-none">
+                      <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" />
+                      View prompt used for this plan
+                    </summary>
+                    <pre className="p-3 text-xs text-foreground/90 whitespace-pre-wrap break-words max-h-64 overflow-y-auto border-t border-border/50 bg-background/50">
+                      {promptUsed}
+                    </pre>
+                  </details>
+                )}
+              </div>
+            )}
             {usedLlm === false && (
               <div
                 className="rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200 px-4 py-3 flex items-start gap-3"
