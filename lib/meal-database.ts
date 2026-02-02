@@ -700,3 +700,38 @@ export function getMealsByType(mealType: "breakfast" | "lunch" | "dinner"): Meal
 export function generateMealId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
+
+// Coerce LLM-generated JSON object into a valid Meal (same style as MEAL_DATABASE).
+export function coerceToMeal(obj: unknown, fallbackIdPrefix: string = "llm"): Meal {
+  const o = obj as Record<string, unknown>;
+  const arr = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : []);
+  const num = (v: unknown, d: number): number => (typeof v === "number" && !Number.isNaN(v) ? v : d);
+  const str = (v: unknown, d: string): string => (typeof v === "string" ? v : d);
+  const mealType = (v: unknown): Meal["mealType"] => {
+    if (v === "breakfast" || v === "lunch" || v === "dinner") return v;
+    return "dinner";
+  };
+  const id = str(o.id, "").trim() || generateMealId(fallbackIdPrefix);
+  return {
+    id,
+    name: str(o.name, "Unnamed meal"),
+    description: str(o.description, ""),
+    prepTime: str(o.prepTime, "—"),
+    servings: Math.max(1, Math.floor(num(o.servings, 1))),
+    tags: arr(o.tags),
+    ingredients: arr(o.ingredients),
+    mealType: mealType(o.mealType),
+    cuisine: arr(o.cuisine),
+    proteinSources: arr(o.proteinSources),
+    carbSources: arr(o.carbSources),
+    fatSources: arr(o.fatSources),
+    estimatedCalories: Math.max(0, num(o.estimatedCalories, 0)),
+    estimatedProtein: Math.max(0, num(o.estimatedProtein, 0)),
+    estimatedCarbs: Math.max(0, num(o.estimatedCarbs, 0)),
+    estimatedFats: Math.max(0, num(o.estimatedFats, 0)),
+    containsAllergens: arr(o.containsAllergens),
+    dietaryRestrictions: arr(o.dietaryRestrictions),
+    medicalFriendly: arr(o.medicalFriendly),
+    medicationSafe: arr(o.medicationSafe),
+  };
+}

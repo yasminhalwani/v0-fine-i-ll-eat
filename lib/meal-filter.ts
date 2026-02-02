@@ -327,13 +327,15 @@ function scoreMeal(meal: Meal, preferences: MealPreferences): number {
   return score;
 }
 
-// Filter meals based on preferences
-export function filterMeals(
+// Filter an arbitrary pool of meals (e.g. LLM-generated) by type and preferences.
+// Uses the same rules as filterMeals but on the provided array instead of MEAL_DATABASE.
+export function filterMealsFromPool(
   mealType: "breakfast" | "lunch" | "dinner",
   preferences: MealPreferences,
+  mealPool: Meal[],
   excludeMealNames: string[] = []
 ): Meal[] {
-  let meals = getMealsByType(mealType);
+  let meals = mealPool.filter((m) => m.mealType === mealType);
 
   // Filter out excluded meals
   meals = meals.filter((meal) => !excludeMealNames.includes(meal.name));
@@ -367,6 +369,29 @@ export function filterMeals(
   scoredMeals.sort((a, b) => b.score - a.score);
 
   return scoredMeals.map((item) => item.meal);
+}
+
+// Filter meals based on preferences (uses static MEAL_DATABASE)
+export function filterMeals(
+  mealType: "breakfast" | "lunch" | "dinner",
+  preferences: MealPreferences,
+  excludeMealNames: string[] = []
+): Meal[] {
+  return filterMealsFromPool(mealType, preferences, getMealsByType(mealType), excludeMealNames);
+}
+
+// Select a meal from a pool (e.g. LLM-generated) that matches preferences.
+export function selectMealFromPool(
+  mealType: "breakfast" | "lunch" | "dinner",
+  preferences: MealPreferences,
+  mealPool: Meal[],
+  excludeMealNames: string[] = []
+): Meal | null {
+  const filtered = filterMealsFromPool(mealType, preferences, mealPool, excludeMealNames);
+  if (filtered.length === 0) return null;
+  const topMeals = filtered.slice(0, Math.min(5, filtered.length));
+  const selected = topMeals[Math.floor(Math.random() * topMeals.length)];
+  return { ...selected, id: generateMealId(mealType.substring(0, 2)) };
 }
 
 // Select a random meal from filtered list
