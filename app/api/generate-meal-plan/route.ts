@@ -148,7 +148,7 @@ export async function POST(req: Request) {
         }
 
         const shoppingList = generateShoppingList(allMeals, preferences.fridgeInventory);
-        return Response.json({ plan: weeklyPlan, shoppingList, usedLlm: true, promptUsed });
+        return Response.json({ plan: weeklyPlan, shoppingList, usedLlm: true, promptUsed, responseUsed: responseText });
       } catch (llmError) {
         fallbackReason = "llm_error";
         const message = llmError instanceof Error ? llmError.message : String(llmError);

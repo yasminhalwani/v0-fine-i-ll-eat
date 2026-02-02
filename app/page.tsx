@@ -18,6 +18,7 @@ export default function MealPlannerPage() {
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [usedLlm, setUsedLlm] = useState<boolean | null>(null);
   const [promptUsed, setPromptUsed] = useState<string | null>(null);
+  const [responseUsed, setResponseUsed] = useState<string | null>(null);
   const [fallbackReason, setFallbackReason] = useState<"no_api_key" | "llm_error" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [regeneratingMeal, setRegeneratingMeal] = useState<{
@@ -47,6 +48,7 @@ export default function MealPlannerPage() {
       setShoppingList(data.shoppingList || []);
       setUsedLlm(data.usedLlm ?? null);
       setPromptUsed(data.promptUsed ?? null);
+      setResponseUsed(data.responseUsed ?? null);
       setFallbackReason(data.fallbackReason ?? null);
     } catch (error) {
       console.error("Failed to generate meal plan:", error);
@@ -165,6 +167,7 @@ export default function MealPlannerPage() {
       setShoppingList(data.shoppingList || []);
       setUsedLlm(data.usedLlm ?? null);
       setPromptUsed(data.promptUsed ?? null);
+      setResponseUsed(data.responseUsed ?? null);
       setFallbackReason(data.fallbackReason ?? null);
     } catch (error) {
       console.error("Failed to regenerate meal plan:", error);
@@ -178,6 +181,7 @@ export default function MealPlannerPage() {
     setShoppingList([]);
     setUsedLlm(null);
     setPromptUsed(null);
+    setResponseUsed(null);
     setFallbackReason(null);
   };
 
@@ -238,6 +242,17 @@ export default function MealPlannerPage() {
                     </summary>
                     <pre className="p-3 text-xs text-foreground/90 whitespace-pre-wrap break-words max-h-64 overflow-y-auto border-t border-border/50 bg-background/50">
                       {promptUsed}
+                    </pre>
+                  </details>
+                )}
+                {responseUsed != null && (
+                  <details className="group rounded-lg border border-border/50 bg-muted/30 overflow-hidden">
+                    <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground select-none">
+                      <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" />
+                      View AI response used for this plan
+                    </summary>
+                    <pre className="p-3 text-xs text-foreground/90 whitespace-pre-wrap break-words max-h-64 overflow-y-auto border-t border-border/50 bg-background/50">
+                      {responseUsed}
                     </pre>
                   </details>
                 )}
