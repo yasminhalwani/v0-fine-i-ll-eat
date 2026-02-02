@@ -1,4 +1,5 @@
 import os
+import json
 import warnings
 from pathlib import Path
 
@@ -89,6 +90,21 @@ def prompt_llm_from_file(
     prompt = substitute_prompt_variables(template, variables or {})
     return prompt_llm(prompt, model=model)
 
+def save_text_to_file(filename: str, text: str) -> None:
+    with open(filename, "w", encoding="utf-8") as file:
+        file.write(text)
+
+def read_text_from_file(filename: str) -> str:
+    with open(filename, "r", encoding="utf-8") as file:
+        return file.read()
+
+def save_json_to_file(filename: str, data: dict) -> None:
+    with open(filename, "w", encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False, indent=4)
+
+def read_json_from_file(filename: str) -> dict:
+    with open(filename, "r", encoding="utf-8") as file:
+        return json.load(file)
 
 def main() -> None:
     example_prompt = "Give me three quick dinner ideas using chicken."
