@@ -6,7 +6,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
- 
-}
+  // Include prompts/*.txt in serverless bundle so AI route can read them on Vercel
+  experimental: {
+    outputFileTracingIncludes: {
+      "/api/generate-meal-plan": ["./prompts/**"],
+    },
+  },
+};
 
-export default nextConfig
+export default nextConfig;

@@ -28,3 +28,15 @@ Continue building your app on:
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
+
+## AI meal plans (Vercel)
+
+To enable AI-generated meal plans on Vercel:
+
+1. **Environment variables** (Project → Settings → Environment Variables):
+   - `OPENROUTER_API_KEY` — your key from [openrouter.ai/keys](https://openrouter.ai/keys) (required for AI).
+   - Optional: `OPENROUTER_MODEL` — e.g. `meta-llama/llama-3.1-8b-instruct` for faster responses within Vercel’s 60s limit (Pro plan).
+
+2. **Redeploy** after adding or changing env vars.
+
+3. **Plans**: Vercel **Pro** allows 60s for the AI route; **Hobby** allows 10s, so AI may time out and the app will fall back to the built-in meal database.

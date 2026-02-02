@@ -1,12 +1,18 @@
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
 import { normalizePreferences, selectMeal, type MealPreferences } from "@/lib/meal-filter";
 import { generateShoppingList } from "@/lib/shopping-list";
 import { Meal, coerceToMeal } from "@/lib/meal-database";
 import { promptLlmWithTemplate, parseJsonFromLlmResponse } from "@/lib/prompt-llm";
 
+// Vercel: use Node runtime (required for fs, long fetch). Pro allows 60s; Hobby allows 10s.
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+/** Save LLM response to file (local only). Skipped on Vercel (read-only fs). */
 async function saveLlmResponseToFile(responseText: string): Promise<void> {
+  if (process.env.VERCEL) return;
   try {
+    const { writeFile, mkdir } = await import("fs/promises");
+    const path = await import("path");
     const timestamp = new Date()
       .toISOString()
       .replace(/[:.]/g, "-")
@@ -19,9 +25,6 @@ async function saveLlmResponseToFile(responseText: string): Promise<void> {
     console.warn("Could not save LLM response to file:", err);
   }
 }
-
-// Allow route to run up to 3 min so LLM (OpenRouter) can finish weekly plan
-export const maxDuration = 180;
 
 interface DayPlan {
   day: string;
@@ -98,7 +101,8 @@ export async function POST(req: Request) {
   try {
     const raw = await req.json();
     const preferences: MealPreferences = normalizePreferences(raw);
-    const useLlm = !!process.env.OPENROUTER_API_KEY;
+    const apiKey = (process.env.OPENROUTER_API_KEY ?? process.env.OPENROUTER_KEY ?? "").trim().replace(/^["']|["']$/g, "");
+    const useLlm = !!apiKey;
 
     if (useLlm) {
       try {

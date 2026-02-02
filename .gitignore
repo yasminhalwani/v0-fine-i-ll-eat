@@ -27,4 +27,4 @@ yarn-error.log*
 next-env.d.ts
 
 # saved LLM responses (optional: remove this line to track outputs)
-#/outputs/
+/outputs/

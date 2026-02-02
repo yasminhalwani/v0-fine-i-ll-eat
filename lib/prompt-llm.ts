@@ -2,9 +2,12 @@ import { readFile } from "fs/promises";
 import path from "path";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+/** Default: 70B is thorough but slow. Set OPENROUTER_MODEL to e.g. meta-llama/llama-3.1-8b-instruct for faster Vercel response. */
 const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct";
-/** Timeout for OpenRouter (weekly plan = large prompt + 21 meals). Increase if you still hit timeouts. */
-const OPENROUTER_TIMEOUT_MS = 180_000; // 3 minutes
+/** Vercel Pro allows 60s; Hobby allows 10s. Use 55s so we fall back to static DB before kill. */
+const OPENROUTER_TIMEOUT_MS = typeof process !== "undefined" && process.env.VERCEL
+  ? 55_000
+  : 180_000;
 
 /**
  * Read a prompt template from the prompts folder (same idea as utils.prompt_llm + .txt files).
@@ -43,14 +46,19 @@ export function substitutePromptVariables(
  */
 export async function promptLlm(
   promptText: string,
-  model: string = DEFAULT_MODEL
+  model?: string
 ): Promise<string> {
-  const apiKey = (process.env.OPENROUTER_API_KEY ?? "").trim().replace(/^["']|["']$/g, "");
+  const apiKey = (
+    process.env.OPENROUTER_API_KEY ??
+    process.env.OPENROUTER_KEY ??
+    ""
+  ).trim().replace(/^["']|["']$/g, "");
   if (!apiKey) {
     throw new Error(
-      "OPENROUTER_API_KEY is not set. Add it to .env or .env.local. Get a key at https://openrouter.ai/keys"
+      "OPENROUTER_API_KEY is not set. Add it in Vercel: Project → Settings → Environment Variables. Get a key at https://openrouter.ai/keys"
     );
   }
+  const resolvedModel = model ?? process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL;
 
   const response = await fetch(OPENROUTER_URL, {
     method: "POST",
@@ -59,7 +67,7 @@ export async function promptLlm(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model,
+      model: resolvedModel,
       messages: [{ role: "user", content: promptText }],
       temperature: 0.7,
     }),
