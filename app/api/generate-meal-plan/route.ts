@@ -117,7 +117,7 @@ export async function POST(req: Request) {
         }
 
         const shoppingList = generateShoppingList(allMeals, preferences.fridgeInventory);
-        return Response.json({ plan: weeklyPlan, shoppingList });
+        return Response.json({ plan: weeklyPlan, shoppingList, usedLlm: true });
       } catch (llmError) {
         console.error("LLM meal plan failed, falling back to static database:", llmError);
         // Fall through to static plan
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
     }
 
     const shoppingList = generateShoppingList(allMeals, preferences.fridgeInventory);
-    return Response.json({ plan: weeklyPlan, shoppingList });
+    return Response.json({ plan: weeklyPlan, shoppingList, usedLlm: false });
   } catch (error) {
     console.error("Failed to generate meal plan:", error);
     return Response.json(

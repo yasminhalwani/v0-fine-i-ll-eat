@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { PreferencesForm, type MealPreferences } from "@/components/preferences-form";
 import { WeeklyPlan, type DayPlan } from "@/components/weekly-plan";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Sparkles, Loader2, Info } from "lucide-react";
 
 
 interface ShoppingItem {
@@ -16,6 +16,7 @@ export default function MealPlannerPage() {
   const [preferences, setPreferences] = useState<MealPreferences | null>(null);
   const [weeklyPlan, setWeeklyPlan] = useState<DayPlan[] | null>(null);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
+  const [usedLlm, setUsedLlm] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [regeneratingMeal, setRegeneratingMeal] = useState<{
     dayIndex: number;
@@ -42,6 +43,7 @@ export default function MealPlannerPage() {
       const data = await response.json();
       setWeeklyPlan(data.plan);
       setShoppingList(data.shoppingList || []);
+      setUsedLlm(data.usedLlm ?? null);
     } catch (error) {
       console.error("Failed to generate meal plan:", error);
     } finally {
@@ -157,6 +159,7 @@ export default function MealPlannerPage() {
       const data = await response.json();
       setWeeklyPlan(data.plan);
       setShoppingList(data.shoppingList || []);
+      setUsedLlm(data.usedLlm ?? null);
     } catch (error) {
       console.error("Failed to regenerate meal plan:", error);
     } finally {
@@ -167,6 +170,7 @@ export default function MealPlannerPage() {
   const goBack = () => {
     setWeeklyPlan(null);
     setShoppingList([]);
+    setUsedLlm(null);
   };
 
   const LOADING_MESSAGES = [
@@ -211,16 +215,33 @@ export default function MealPlannerPage() {
         </header>
 
         {weeklyPlan ? (
-          <WeeklyPlan
-            plan={weeklyPlan}
-            shoppingList={shoppingList}
-            onBack={goBack}
-            onRegenerateMeal={regenerateMeal}
-            onRegenerateDay={regenerateDay}
-            onRegenerateAll={regenerateAll}
-            regeneratingMeal={regeneratingMeal}
-            isRegeneratingAll={isRegeneratingAll}
-          />
+          <div className="space-y-4">
+            {usedLlm === false && (
+              <div
+                className="rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200 px-4 py-3 flex items-start gap-3"
+                role="status"
+                aria-live="polite"
+              >
+                <Info className="h-5 w-5 shrink-0 mt-0.5 text-amber-400" />
+                <div>
+                  <p className="font-medium text-foreground">Using built-in meal database</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    AI wasn’t available for this request, so your plan was generated from our curated meal database. You still get a full week of meals and a shopping list.
+                  </p>
+                </div>
+              </div>
+            )}
+            <WeeklyPlan
+              plan={weeklyPlan}
+              shoppingList={shoppingList}
+              onBack={goBack}
+              onRegenerateMeal={regenerateMeal}
+              onRegenerateDay={regenerateDay}
+              onRegenerateAll={regenerateAll}
+              regeneratingMeal={regeneratingMeal}
+              isRegeneratingAll={isRegeneratingAll}
+            />
+          </div>
         ) : (
           <div className="max-w-2xl mx-auto space-y-4">
             {isLoading && (
