@@ -3,6 +3,8 @@ import path from "path";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct";
+/** Timeout for OpenRouter (weekly plan = large prompt + 21 meals). Increase if you still hit timeouts. */
+const OPENROUTER_TIMEOUT_MS = 180_000; // 3 minutes
 
 /**
  * Read a prompt template from the prompts folder (same idea as utils.prompt_llm + .txt files).
@@ -61,7 +63,7 @@ export async function promptLlm(
       messages: [{ role: "user", content: promptText }],
       temperature: 0.7,
     }),
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS),
   });
 
   if (!response.ok) {

@@ -3,6 +3,9 @@ import { generateShoppingList } from "@/lib/shopping-list";
 import { Meal, coerceToMeal } from "@/lib/meal-database";
 import { promptLlmWithTemplate, parseJsonFromLlmResponse } from "@/lib/prompt-llm";
 
+// Allow route to run up to 3 min so LLM (OpenRouter) can finish weekly plan
+export const maxDuration = 180;
+
 interface DayPlan {
   day: string;
   breakfast: Meal;

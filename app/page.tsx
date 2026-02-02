@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PreferencesForm, type MealPreferences } from "@/components/preferences-form";
 import { WeeklyPlan, type DayPlan } from "@/components/weekly-plan";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Loader2 } from "lucide-react";
 
 
 interface ShoppingItem {
@@ -169,6 +169,21 @@ export default function MealPlannerPage() {
     setShoppingList([]);
   };
 
+  const LOADING_MESSAGES = [
+    "Analyzing your preferences…",
+    "Planning your week…",
+    "Choosing meals that fit your diet…",
+    "Almost there…",
+  ];
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  useEffect(() => {
+    if (!isLoading) return;
+    const interval = setInterval(() => {
+      setLoadingMessageIndex((i) => (i + 1) % LOADING_MESSAGES.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
   return (
     <main className="min-h-screen bg-background relative overflow-hidden">
       {/* Cosmic background effects */}
@@ -207,7 +222,29 @@ export default function MealPlannerPage() {
             isRegeneratingAll={isRegeneratingAll}
           />
         ) : (
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-2xl mx-auto space-y-4">
+            {isLoading && (
+              <div className="rounded-xl border border-primary/20 bg-card/80 backdrop-blur-sm p-5 shadow-lg">
+                <div className="flex items-center gap-3 mb-3">
+                  <Loader2 className="h-6 w-6 text-primary animate-spin shrink-0" />
+                  <p className="font-medium text-foreground">
+                    {LOADING_MESSAGES[loadingMessageIndex]}
+                  </p>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full w-1/3 rounded-full bg-gradient-to-r from-primary to-accent animate-progress-indeterminate"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Generating meal plan"
+                  />
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  This can take up to a minute when using AI — thanks for waiting!
+                </p>
+              </div>
+            )}
             <PreferencesForm onSubmit={generateMealPlan} isLoading={isLoading} />
           </div>
         )}
