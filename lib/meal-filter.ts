@@ -18,6 +18,8 @@ export interface MealPreferences {
   fridgeInventory: string[];
   mealServiceMeals: string[];
   eatingOutMeals: string[];
+  /** How many times per week the user wants to cook (1–7). Used for batch-cooking suggestions (e.g. stew for 2 meals). */
+  cookTimesPerWeek: number;
   mealExamples: string;
   additionalNotes: string;
 }
@@ -41,6 +43,9 @@ export function normalizePreferences(input: Partial<MealPreferences>): MealPrefe
     fridgeInventory: Array.isArray(input.fridgeInventory) ? input.fridgeInventory : [],
     mealServiceMeals: Array.isArray(input.mealServiceMeals) ? input.mealServiceMeals : [],
     eatingOutMeals: Array.isArray(input.eatingOutMeals) ? input.eatingOutMeals : [],
+    cookTimesPerWeek: typeof input.cookTimesPerWeek === "number" && input.cookTimesPerWeek >= 1 && input.cookTimesPerWeek <= 7
+      ? Math.round(input.cookTimesPerWeek)
+      : 7,
     mealExamples: typeof input.mealExamples === "string" ? input.mealExamples : "",
     additionalNotes: typeof input.additionalNotes === "string" ? input.additionalNotes : "",
   };

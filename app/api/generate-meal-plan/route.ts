@@ -92,6 +92,7 @@ function buildWeeklyPlanPromptVariables(preferences: MealPreferences): Record<st
     cuisines: preferences.cuisines,
     cuisineNotes: preferences.cuisineNotes,
     fridgeInventory: preferences.fridgeInventory,
+    cookTimesPerWeek: preferences.cookTimesPerWeek,
     mealExamples: preferences.mealExamples,
     additionalNotes: preferences.additionalNotes,
   };

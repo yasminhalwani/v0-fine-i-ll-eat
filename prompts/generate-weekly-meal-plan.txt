@@ -13,6 +13,7 @@ User preferences:
 - Preferred cuisines: {{cuisines}}
 - Cuisine notes: {{cuisineNotes}}
 - Items already in fridge (prefer using): {{fridgeInventory}}
+- How many times per week they want to cook: {{cookTimesPerWeek}} (use this for batch cooking: suggest meals that last 2+ servings, e.g. stews, casseroles, so fewer cooking sessions cover more meals)
 - Example meals they like: {{mealExamples}}
 - Additional notes: {{additionalNotes}}
 
@@ -23,7 +24,8 @@ Rules:
 4. Prefer cuisines and styles from their preferences and examples.
 5. Where possible, use ingredients from their fridge inventory.
 6. Vary meals across the week (different cuisines, proteins, styles).
-7. Each meal must follow the exact JSON schema (see below).
+7. When cookTimesPerWeek is less than 7, suggest batch-cooking meals (e.g. stew, curry, casserole) that can cover 2+ meals—set servings to 2 or more and use the same meal name for consecutive slots where it applies.
+8. Each meal must follow the exact JSON schema (see below).
 
 Output format — each meal must have these fields:
 id (string, e.g. "bf-1", "ln-1", "dn-1"), name, description, prepTime, servings (1), tags (array), ingredients (array), mealType ("breakfast"|"lunch"|"dinner"), cuisine (array), proteinSources, carbSources, fatSources, estimatedCalories, estimatedProtein, estimatedCarbs, estimatedFats, containsAllergens (array), dietaryRestrictions (array), medicalFriendly (array), medicationSafe (array).

@@ -11,135 +11,19 @@ import { Slider } from "@/components/ui/slider";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
   X, Plus, Zap, Atom, Activity, Snowflake, Box, CloudUpload, ImageIcon, Loader2, Navigation, 
-  Beef, Wheat, Droplets, Globe, Cookie, Sparkles, ShieldAlert, Orbit, Library, Pill 
+  Beef, Wheat, Droplets, Globe, Cookie, Sparkles, ShieldAlert, Orbit, Library, Pill, Users 
 } from "lucide-react";
-
-const PROTEIN_SOURCES = [
-  "Chicken",
-  "Beef",
-  "Pork",
-  "Fish",
-  "Shrimp",
-  "Eggs",
-  "Tofu",
-  "Tempeh",
-  "Legumes",
-  "Greek Yogurt",
-  "Cottage Cheese",
-  "Turkey",
-  "Lamb",
-  "Salmon",
-  "Tuna",
-];
-
-const CARB_SOURCES = [
-  "Rice",
-  "Pasta",
-  "Bread",
-  "Potatoes",
-  "Sweet Potatoes",
-  "Quinoa",
-  "Oats",
-  "Beans",
-  "Lentils",
-  "Fruit",
-  "Corn",
-  "Couscous",
-  "Barley",
-  "Bulgur",
-];
-
-const FAT_SOURCES = [
-  "Olive Oil",
-  "Avocado",
-  "Nuts",
-  "Seeds",
-  "Butter",
-  "Coconut Oil",
-  "Cheese",
-  "Dark Chocolate",
-  "Nut Butters",
-  "Fatty Fish",
-  "Whole Eggs",
-  "Ghee",
-];
-
-const COMMON_ALLERGIES = [
-  "Peanuts",
-  "Tree Nuts",
-  "Milk/Dairy",
-  "Eggs",
-  "Wheat/Gluten",
-  "Soy",
-  "Fish",
-  "Shellfish",
-  "Sesame",
-  "Mustard",
-  "Celery",
-  "Sulfites",
-];
-
-const DIETARY_RESTRICTIONS = [
-  "Vegetarian",
-  "Vegan",
-  "Pescatarian",
-  "Keto",
-  "Paleo",
-  "Low-Carb",
-  "Low-Fat",
-  "Halal",
-  "Kosher",
-  "Low-Sodium",
-  "Diabetic-Friendly",
-];
-
-const CUISINE_OPTIONS = [
-  "Italian",
-  "Mexican",
-  "Asian",
-  "Mediterranean",
-  "Indian",
-  "American",
-  "French",
-  "Thai",
-  "Japanese",
-  "Greek",
-  "Middle Eastern",
-  "Korean",
-];
-
-const MEDICAL_CONDITIONS = [
-  { name: "Type 1 Diabetes", tip: "Low glycemic index foods, consistent carb intake" },
-  { name: "Type 2 Diabetes", tip: "Low sugar, low glycemic, high fiber" },
-  { name: "Hypertension", tip: "Low sodium, DASH diet friendly" },
-  { name: "High Cholesterol", tip: "Low saturated fat, high fiber" },
-  { name: "Heart Disease", tip: "Heart-healthy fats, low sodium" },
-  { name: "Celiac Disease", tip: "Strict gluten-free" },
-  { name: "IBS", tip: "Low FODMAP options" },
-  { name: "Crohn's Disease", tip: "Easy to digest, low fiber during flares" },
-  { name: "GERD/Acid Reflux", tip: "Avoid acidic, spicy, fatty foods" },
-  { name: "Kidney Disease", tip: "Low sodium, potassium, phosphorus" },
-  { name: "Gout", tip: "Low purine foods" },
-  { name: "PCOS", tip: "Low glycemic, anti-inflammatory" },
-  { name: "Hypothyroidism", tip: "Iodine-rich, selenium foods" },
-  { name: "Anemia", tip: "Iron-rich foods with vitamin C" },
-  { name: "Osteoporosis", tip: "Calcium and vitamin D rich" },
-];
-
-const COMMON_MEDICATIONS = [
-  { name: "Warfarin (Coumadin)", interactions: "Avoid vitamin K-rich foods (leafy greens), limit cranberry, avoid grapefruit" },
-  { name: "Statins (Lipitor, Crestor)", interactions: "Avoid grapefruit and grapefruit juice" },
-  { name: "MAO Inhibitors", interactions: "Avoid tyramine-rich foods (aged cheese, cured meats, fermented foods, soy sauce)" },
-  { name: "Metformin", interactions: "Limit alcohol, take with food to reduce stomach upset" },
-  { name: "Lisinopril/ACE Inhibitors", interactions: "Avoid high potassium foods (bananas, oranges, potatoes)" },
-  { name: "Levothyroxine (Synthroid)", interactions: "Avoid soy, high-fiber foods, calcium, and coffee near dose time" },
-  { name: "Methotrexate", interactions: "Avoid alcohol, increase folic acid intake" },
-  { name: "Blood Thinners (Aspirin)", interactions: "Limit vitamin E supplements, fish oil, garlic supplements" },
-  { name: "Calcium Channel Blockers", interactions: "Avoid grapefruit and grapefruit juice" },
-  { name: "Antibiotics (Tetracycline)", interactions: "Avoid dairy products near dose time" },
-  { name: "Potassium-Sparing Diuretics", interactions: "Limit high potassium foods" },
-  { name: "Lithium", interactions: "Maintain consistent sodium and caffeine intake" },
-];
+import {
+  PREFERENCES_FORM_STRINGS as S,
+  PROTEIN_SOURCES,
+  CARB_SOURCES,
+  FAT_SOURCES,
+  COMMON_ALLERGIES,
+  DIETARY_RESTRICTIONS,
+  CUISINE_OPTIONS,
+  MEDICAL_CONDITIONS,
+  COMMON_MEDICATIONS,
+} from "@/lib/preferences-form-strings";
 
 export interface MealPreferences {
   calories: number;
@@ -159,6 +43,7 @@ export interface MealPreferences {
   fridgeInventory: string[];
   mealServiceMeals: string[];
   eatingOutMeals: string[];
+  numberOfPeople: number;
   mealExamples: string;
   additionalNotes: string;
 }
@@ -198,6 +83,7 @@ export function PreferencesForm({ onSubmit, isLoading }: PreferencesFormProps) {
   const [mealServiceImages, setMealServiceImages] = useState<{ id: string; preview: string; name: string }[]>([]);
   const [isParsingImage, setIsParsingImage] = useState(false);
   const [eatingOutMeals, setEatingOutMeals] = useState<string[]>([]);
+  const [numberOfPeople, setNumberOfPeople] = useState(2);
   const [mealExampleImages, setMealExampleImages] = useState<{ id: string; preview: string; name: string }[]>([]);
   const [isParsingExampleImage, setIsParsingExampleImage] = useState(false);
   const [mealExamples, setMealExamples] = useState("");
@@ -435,159 +321,83 @@ const handleSubmit = () => {
       fridgeInventory,
       mealServiceMeals,
       eatingOutMeals,
+      numberOfPeople,
       mealExamples,
       additionalNotes,
     });
   };
 
+  const SectionHeader = ({ title, isFirst }: { title: string; isFirst?: boolean }) => (
+    <div className={`pb-2 ${isFirst ? "pt-0" : "pt-8"}`}>
+      <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground border-b border-border pb-2">
+        {title}
+      </h2>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      {/* Calories & Macros */}
+      <Card className="border-primary/20 bg-muted/30">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl font-semibold text-foreground">
+            {S.welcome.title}
+          </CardTitle>
+          <CardDescription className="text-base">
+            {S.welcome.description}
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      <SectionHeader title={S.sections.taste} isFirst />
+      {/* Cuisine Preferences */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
-            <Zap className="h-5 w-5 text-chart-5" />
-            Daily Calories & Macros
+            <Globe className="h-5 w-5 text-accent" />
+            {S.cuisine.title}
           </CardTitle>
           <CardDescription>
-            Set your daily calorie target and macro distribution
+            {S.cuisine.description}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Calories */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="calories" className="text-base font-medium">Daily Calories</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="calories"
-                  type="number"
-                  value={calories}
-                  onChange={(e) => setCalories(Number(e.target.value))}
-                  className="w-24 text-center"
-                  min={1000}
-                  max={5000}
-                  step={50}
-                />
-                <span className="text-sm text-muted-foreground">kcal</span>
-              </div>
-            </div>
-            <Slider
-              value={[calories]}
-              onValueChange={([val]) => setCalories(val)}
-              min={1000}
-              max={5000}
-              step={50}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>1000</span>
-              <span>5000</span>
-            </div>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {CUISINE_OPTIONS.map((cuisine) => (
+              <Badge
+                key={cuisine}
+                variant={cuisines.includes(cuisine) ? "default" : "outline"}
+                className="cursor-pointer transition-all hover:scale-105"
+                onClick={() => toggleItem(cuisine, cuisines, setCuisines)}
+              >
+                {cuisine}
+                {cuisines.includes(cuisine) && <X className="ml-1 h-3 w-3" />}
+              </Badge>
+            ))}
           </div>
-
-          {/* Macro Distribution */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-base font-medium">Macro Distribution</Label>
-              {!isValidMacros && (
-                <span className="text-xs text-destructive">
-                  Total: {totalPercent}% (must equal 100%)
-                </span>
-              )}
-            </div>
-
-            {/* Protein */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500" />
-                  <span className="text-sm font-medium">Protein</span>
-                </div>
-                <div className="text-sm">
-                  <span className="font-semibold">{proteinPercent}%</span>
-                  <span className="text-muted-foreground ml-2">({proteinGrams}g)</span>
-                </div>
-              </div>
-              <Slider
-                value={[proteinPercent]}
-                onValueChange={([val]) => adjustMacros("protein", val)}
-                min={10}
-                max={60}
-                step={5}
-              />
-            </div>
-
-            {/* Carbs */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-amber-500" />
-                  <span className="text-sm font-medium">Carbohydrates</span>
-                </div>
-                <div className="text-sm">
-                  <span className="font-semibold">{carbsPercent}%</span>
-                  <span className="text-muted-foreground ml-2">({carbsGrams}g)</span>
-                </div>
-              </div>
-              <Slider
-                value={[carbsPercent]}
-                onValueChange={([val]) => adjustMacros("carbs", val)}
-                min={10}
-                max={70}
-                step={5}
-              />
-            </div>
-
-            {/* Fats */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-green-500" />
-                  <span className="text-sm font-medium">Fats</span>
-                </div>
-                <div className="text-sm">
-                  <span className="font-semibold">{fatsPercent}%</span>
-                  <span className="text-muted-foreground ml-2">({fatsGrams}g)</span>
-                </div>
-              </div>
-              <Slider
-                value={[fatsPercent]}
-                onValueChange={([val]) => adjustMacros("fats", val)}
-                min={10}
-                max={60}
-                step={5}
-              />
-            </div>
-
-            {/* Macro Summary Bar */}
-            <div className="h-4 w-full rounded-full overflow-hidden flex mt-4">
-              <div
-                className="bg-red-500 transition-all"
-                style={{ width: `${proteinPercent}%` }}
-              />
-              <div
-                className="bg-amber-500 transition-all"
-                style={{ width: `${carbsPercent}%` }}
-              />
-              <div
-                className="bg-green-500 transition-all"
-                style={{ width: `${fatsPercent}%` }}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="cuisineNotes">
+              {S.cuisine.labelCuisineNotes}
+            </Label>
+            <Textarea
+              id="cuisineNotes"
+              placeholder={S.cuisine.placeholderCuisineNotes}
+              value={cuisineNotes}
+              onChange={(e) => setCuisineNotes(e.target.value)}
+              rows={3}
+            />
           </div>
         </CardContent>
       </Card>
 
-      {/* Protein Sources */}
+      {/* Preferred Protein Sources */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
             <Beef className="h-5 w-5 text-chart-3" />
-            Preferred Protein Sources
+            {S.protein.title}
           </CardTitle>
           <CardDescription>
-            Select the protein sources you enjoy eating
+            {S.protein.description}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -640,10 +450,10 @@ const handleSubmit = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
             <Droplets className="h-5 w-5 text-amber-400" />
-            Preferred Fat Sources
+            {S.fats.title}
           </CardTitle>
           <CardDescription>
-            Select the healthy fat sources you like
+            {S.fats.description}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -663,15 +473,384 @@ const handleSubmit = () => {
         </CardContent>
       </Card>
 
-      {/* Allergies */}
+      {/* Recipe Inventory */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <Library className="h-5 w-5 text-primary" />
+            Recipe Inventory
+          </CardTitle>
+          <CardDescription>
+            Add your favorite recipes to be considered in meal suggestions
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="newRecipe">Add a recipe</Label>
+            <div className="flex gap-2">
+              <Textarea
+                id="newRecipe"
+                placeholder="Enter a recipe name or describe it (e.g., 'Grandma's chicken soup with vegetables and noodles' or 'Spicy Korean bibimbap with gochujang sauce')..."
+                value={currentRecipe}
+                onChange={(e) => setCurrentRecipe(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    addRecipe();
+                  }
+                }}
+                rows={2}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-auto bg-transparent"
+                onClick={addRecipe}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {S.recipeInventory.hintRecipes}
+            </p>
+          </div>
+          {recipeInventory.length > 0 && (
+            <div className="space-y-2">
+              <Label>{S.recipeInventory.yourSavedRecipes(recipeInventory.length)}</Label>
+              <div className="max-h-48 overflow-y-auto space-y-2 rounded-lg border p-3">
+                {recipeInventory.map((recipe, index) => (
+                  <div
+                    key={`${recipe}-${index}`}
+                    className="flex items-start justify-between gap-2 rounded-md bg-muted p-2"
+                  >
+                    <span className="text-sm">{recipe}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 shrink-0"
+                      onClick={() => removeRecipe(recipe)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Meal Examples & Notes */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <Cookie className="h-5 w-5 text-primary" />
+            {S.mealExamples.title}
+          </CardTitle>
+          <CardDescription>
+            {S.mealExamples.description}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <Label>{S.mealExamples.labelUploadPhotos}</Label>
+            <label
+              htmlFor="example-image-upload"
+              className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/50 p-6 cursor-pointer hover:border-primary/50 hover:bg-muted transition-colors"
+            >
+              {isParsingExampleImage ? (
+                <>
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                  <span className="text-sm text-muted-foreground">{S.mealExamples.analyzingPhotos}</span>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <CloudUpload className="h-6 w-6 text-muted-foreground" />
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <span className="text-sm font-medium">{S.mealExamples.uploadPhotosHint}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {S.mealExamples.uploadPhotosSubHint}
+                  </span>
+                </>
+              )}
+              <input
+                id="example-image-upload"
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleExampleImageUpload}
+                disabled={isParsingExampleImage}
+              />
+            </label>
+            {mealExampleImages.length > 0 && (
+              <div className="space-y-2">
+                <Label>{S.mealExamples.uploadedPhotos(mealExampleImages.length)}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {mealExampleImages.map((img) => (
+                    <div
+                      key={img.id}
+                      className="relative group rounded-lg overflow-hidden border"
+                    >
+                      <img
+                        src={img.preview || "/placeholder.svg"}
+                        alt={img.name}
+                        className="h-20 w-20 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeExampleImage(img.id)}
+                        className="absolute top-1 right-1 rounded-full bg-background/80 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">{S.mealExamples.orDescribeMeals}</span>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="mealExamples">{S.mealExamples.labelMealsYouEnjoy}</Label>
+            <Textarea
+              id="mealExamples"
+              placeholder={S.mealExamples.placeholderMealExamples}
+              value={mealExamples}
+              onChange={(e) => setMealExamples(e.target.value)}
+              rows={3}
+            />
+            <p className="text-xs text-muted-foreground">
+              Meals from uploaded photos will appear here automatically
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <SectionHeader title="Your dietaty preferences" />
+      {/* Daily Calories & Macros */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <Zap className="h-5 w-5 text-chart-5" />
+            Daily Calories & Macros
+          </CardTitle>
+          <CardDescription>
+            Set your daily calorie target and macro distribution
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="calories" className="text-base font-medium">Daily Calories</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="calories"
+                  type="number"
+                  value={calories}
+                  onChange={(e) => setCalories(Number(e.target.value))}
+                  className="w-24 text-center"
+                  min={1000}
+                  max={5000}
+                  step={50}
+                />
+                <span className="text-sm text-muted-foreground">{S.caloriesMacros.kcal}</span>
+              </div>
+            </div>
+            <Slider
+              value={[calories]}
+              onValueChange={([val]) => setCalories(val)}
+              min={1000}
+              max={5000}
+              step={50}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>1000</span>
+              <span>5000</span>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-medium">Macro Distribution</Label>
+              {!isValidMacros && (
+                <span className="text-xs text-destructive">
+                  Total: {totalPercent}% (must equal 100%)
+                </span>
+              )}
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <span className="text-sm font-medium">{S.caloriesMacros.protein}</span>
+                </div>
+                <div className="text-sm">
+                  <span className="font-semibold">{proteinPercent}%</span>
+                  <span className="text-muted-foreground ml-2">({proteinGrams}g)</span>
+                </div>
+              </div>
+              <Slider
+                value={[proteinPercent]}
+                onValueChange={([val]) => adjustMacros("protein", val)}
+                min={10}
+                max={60}
+                step={5}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-amber-500" />
+                  <span className="text-sm font-medium">Carbohydrates</span>
+                </div>
+                <div className="text-sm">
+                  <span className="font-semibold">{carbsPercent}%</span>
+                  <span className="text-muted-foreground ml-2">({carbsGrams}g)</span>
+                </div>
+              </div>
+              <Slider
+                value={[carbsPercent]}
+                onValueChange={([val]) => adjustMacros("carbs", val)}
+                min={10}
+                max={70}
+                step={5}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                  <span className="text-sm font-medium">{S.caloriesMacros.fats}</span>
+                </div>
+                <div className="text-sm">
+                  <span className="font-semibold">{fatsPercent}%</span>
+                  <span className="text-muted-foreground ml-2">({fatsGrams}g)</span>
+                </div>
+              </div>
+              <Slider
+                value={[fatsPercent]}
+                onValueChange={([val]) => adjustMacros("fats", val)}
+                min={10}
+                max={60}
+                step={5}
+              />
+            </div>
+            <div className="h-4 w-full rounded-full overflow-hidden flex mt-4">
+              <div
+                className="bg-red-500 transition-all"
+                style={{ width: `${proteinPercent}%` }}
+              />
+              <div
+                className="bg-amber-500 transition-all"
+                style={{ width: `${carbsPercent}%` }}
+              />
+              <div
+                className="bg-green-500 transition-all"
+                style={{ width: `${fatsPercent}%` }}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Dietary Restrictions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <Atom className="h-5 w-5 text-primary" />
+            {S.dietaryRestrictions.title}
+          </CardTitle>
+          <CardDescription>
+            {S.dietaryRestrictions.description}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {DIETARY_RESTRICTIONS.map((restriction) => (
+              <Badge
+                key={restriction}
+                variant={restrictions.includes(restriction) ? "default" : "outline"}
+                className="cursor-pointer transition-all hover:scale-105"
+                onClick={() => toggleItem(restriction, restrictions, setRestrictions)}
+              >
+                {restriction}
+                {restrictions.includes(restriction) && <X className="ml-1 h-3 w-3" />}
+              </Badge>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              placeholder={S.dietaryRestrictions.placeholderAddOther}
+              value={customRestriction}
+              onChange={(e) => setCustomRestriction(e.target.value)}
+              onKeyDown={(e) =>
+                e.key === "Enter" &&
+                addCustomItem(
+                  customRestriction,
+                  restrictions,
+                  setRestrictions,
+                  setCustomRestriction
+                )
+              }
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={() =>
+                addCustomItem(
+                  customRestriction,
+                  restrictions,
+                  setRestrictions,
+                  setCustomRestriction
+                )
+              }
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          {restrictions.filter((r) => !(DIETARY_RESTRICTIONS as string[]).includes(r)).length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {restrictions
+                .filter((r) => !(DIETARY_RESTRICTIONS as string[]).includes(r))
+                .map((restriction) => (
+                  <Badge
+                    key={restriction}
+                    variant="default"
+                    className="cursor-pointer"
+                    onClick={() => toggleItem(restriction, restrictions, setRestrictions)}
+                  >
+                    {restriction}
+                    <X className="ml-1 h-3 w-3" />
+                  </Badge>
+                ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <SectionHeader title="Medical restrictions" />
+      {/* Food Allergies */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
             <ShieldAlert className="h-5 w-5 text-destructive" />
-            Food Allergies
+            {S.allergies.title}
           </CardTitle>
           <CardDescription>
-            Select any food allergies we should avoid
+            {S.allergies.description}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -709,10 +888,10 @@ const handleSubmit = () => {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-          {allergies.filter((a) => !COMMON_ALLERGIES.includes(a)).length > 0 && (
+          {allergies.filter((a) => !(COMMON_ALLERGIES as string[]).includes(a)).length > 0 && (
             <div className="flex flex-wrap gap-2">
               {allergies
-                .filter((a) => !COMMON_ALLERGIES.includes(a))
+                .filter((a) => !(COMMON_ALLERGIES as string[]).includes(a))
                 .map((allergy) => (
                   <Badge
                     key={allergy}
@@ -734,10 +913,10 @@ const handleSubmit = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
             <Activity className="h-5 w-5 text-chart-2" />
-            Medical Conditions
+            {S.medicalConditions.title}
           </CardTitle>
           <CardDescription>
-            Select any medical conditions that may influence your food choices
+            {S.medicalConditions.description}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -795,7 +974,7 @@ const handleSubmit = () => {
           )}
           {medicalConditions.length > 0 && (
             <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-              <p className="font-medium mb-1">Dietary considerations for selected conditions:</p>
+              <p className="font-medium mb-1">{S.medicalConditions.dietaryConsiderations}</p>
               <ul className="list-disc list-inside space-y-1">
                 {medicalConditions.map((c) => {
                   const condition = MEDICAL_CONDITIONS.find((m) => m.name === c);
@@ -808,7 +987,7 @@ const handleSubmit = () => {
               </ul>
             </div>
           )}
-</CardContent>
+        </CardContent>
       </Card>
 
       {/* Medications */}
@@ -839,7 +1018,7 @@ const handleSubmit = () => {
           </div>
           <div className="flex gap-2">
             <Input
-              placeholder="Add other medication..."
+              placeholder={S.medications.placeholderAddOther}
               value={customMedication}
               onChange={(e) => setCustomMedication(e.target.value)}
               onKeyDown={(e) =>
@@ -859,10 +1038,10 @@ const handleSubmit = () => {
               <Plus className="h-4 w-4" />
             </Button>
           </div>
-          {medications.filter((m) => !COMMON_MEDICATIONS.map((med) => med.name).includes(m)).length > 0 && (
+          {medications.filter((m) => !(COMMON_MEDICATIONS.map((med) => med.name) as string[]).includes(m)).length > 0 && (
             <div className="flex flex-wrap gap-2">
               {medications
-                .filter((m) => !COMMON_MEDICATIONS.map((med) => med.name).includes(m))
+                .filter((m) => !(COMMON_MEDICATIONS.map((med) => med.name) as string[]).includes(m))
                 .map((medication) => (
                   <Badge
                     key={medication}
@@ -878,7 +1057,7 @@ const handleSubmit = () => {
           )}
           {medications.length > 0 && (
             <div className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-              <p className="font-medium mb-1 text-foreground">Food interaction warnings:</p>
+              <p className="font-medium mb-1 text-foreground">{S.medications.foodInteractionWarnings}</p>
               <ul className="list-disc list-inside space-y-1">
                 {medications.map((m) => {
                   const med = COMMON_MEDICATIONS.find((medication) => medication.name === m);
@@ -888,7 +1067,7 @@ const handleSubmit = () => {
                     </li>
                   ) : (
                     <li key={m}>
-                      <span className="font-medium">{m}:</span> Will check for common interactions
+                      <span className="font-medium">{m}:</span> {S.medications.willCheckInteractions}
                     </li>
                   );
                 })}
@@ -898,209 +1077,25 @@ const handleSubmit = () => {
         </CardContent>
       </Card>
 
-      {/* Dietary Restrictions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <Atom className="h-5 w-5 text-primary" />
-            Dietary Restrictions
-          </CardTitle>
-          <CardDescription>
-            Select any dietary restrictions or preferences
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {DIETARY_RESTRICTIONS.map((restriction) => (
-              <Badge
-                key={restriction}
-                variant={restrictions.includes(restriction) ? "default" : "outline"}
-                className="cursor-pointer transition-all hover:scale-105"
-                onClick={() => toggleItem(restriction, restrictions, setRestrictions)}
-              >
-                {restriction}
-                {restrictions.includes(restriction) && <X className="ml-1 h-3 w-3" />}
-              </Badge>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add other restriction..."
-              value={customRestriction}
-              onChange={(e) => setCustomRestriction(e.target.value)}
-              onKeyDown={(e) =>
-                e.key === "Enter" &&
-                addCustomItem(
-                  customRestriction,
-                  restrictions,
-                  setRestrictions,
-                  setCustomRestriction
-                )
-              }
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={() =>
-                addCustomItem(
-                  customRestriction,
-                  restrictions,
-                  setRestrictions,
-                  setCustomRestriction
-                )
-              }
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          {restrictions.filter((r) => !DIETARY_RESTRICTIONS.includes(r)).length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {restrictions
-                .filter((r) => !DIETARY_RESTRICTIONS.includes(r))
-                .map((restriction) => (
-                  <Badge
-                    key={restriction}
-                    variant="default"
-                    className="cursor-pointer"
-                    onClick={() => toggleItem(restriction, restrictions, setRestrictions)}
-                  >
-                    {restriction}
-                    <X className="ml-1 h-3 w-3" />
-                  </Badge>
-                ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Cuisine Preferences */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <Globe className="h-5 w-5 text-accent" />
-            Cuisine Preferences
-          </CardTitle>
-          <CardDescription>
-            Select the cuisines you enjoy and describe your flavor preferences
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {CUISINE_OPTIONS.map((cuisine) => (
-              <Badge
-                key={cuisine}
-                variant={cuisines.includes(cuisine) ? "default" : "outline"}
-                className="cursor-pointer transition-all hover:scale-105"
-                onClick={() => toggleItem(cuisine, cuisines, setCuisines)}
-              >
-                {cuisine}
-                {cuisines.includes(cuisine) && <X className="ml-1 h-3 w-3" />}
-              </Badge>
-            ))}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="cuisineNotes">
-              Describe your cuisine and flavor preferences
-            </Label>
-            <Textarea
-              id="cuisineNotes"
-              placeholder="e.g., I love spicy food, prefer lighter sauces over creamy ones, enjoy fusion dishes that combine Asian and Mexican flavors, prefer grilled over fried..."
-              value={cuisineNotes}
-              onChange={(e) => setCuisineNotes(e.target.value)}
-              rows={3}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recipe Inventory */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <Library className="h-5 w-5 text-primary" />
-            Recipe Inventory
-          </CardTitle>
-          <CardDescription>
-            Add your favorite recipes to be considered in meal suggestions
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="newRecipe">Add a recipe</Label>
-            <div className="flex gap-2">
-              <Textarea
-                id="newRecipe"
-                placeholder="Enter a recipe name or describe it (e.g., 'Grandma's chicken soup with vegetables and noodles' or 'Spicy Korean bibimbap with gochujang sauce')..."
-                value={currentRecipe}
-                onChange={(e) => setCurrentRecipe(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    addRecipe();
-                  }
-                }}
-                rows={2}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-auto bg-transparent"
-                onClick={addRecipe}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Press Enter or click + to add. These recipes will be considered when generating your meal plan.
-            </p>
-          </div>
-          {recipeInventory.length > 0 && (
-            <div className="space-y-2">
-              <Label>Your Saved Recipes ({recipeInventory.length})</Label>
-              <div className="max-h-48 overflow-y-auto space-y-2 rounded-lg border p-3">
-                {recipeInventory.map((recipe, index) => (
-                  <div
-                    key={`${recipe}-${index}`}
-                    className="flex items-start justify-between gap-2 rounded-md bg-muted p-2"
-                  >
-                    <span className="text-sm">{recipe}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 shrink-0"
-                      onClick={() => removeRecipe(recipe)}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
+      <SectionHeader title={S.sections.reality} />
       {/* Fridge Inventory */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
             <Snowflake className="h-5 w-5 text-chart-2" />
-            Fridge Inventory
+            {S.fridge.title}
           </CardTitle>
           <CardDescription>
-            Add items you already have at home to help plan your shopping list
+            {S.fridge.description}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="fridgeItem">Add items from your fridge/pantry</Label>
+            <Label htmlFor="fridgeItem">{S.fridge.labelAddItems}</Label>
             <div className="flex gap-2">
               <Input
                 id="fridgeItem"
-                placeholder="e.g., eggs, milk, chicken breast, rice, olive oil..."
+                placeholder={S.fridge.placeholderFridge}
                 value={currentFridgeItem}
                 onChange={(e) => setCurrentFridgeItem(e.target.value)}
                 onKeyDown={(e) => {
@@ -1150,16 +1145,16 @@ const handleSubmit = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
             <Box className="h-5 w-5 text-chart-1" />
-            Meal Plan Service
+            {S.mealService.title}
           </CardTitle>
           <CardDescription>
-            Add meals you're receiving from a meal delivery service this week - upload screenshots or type them manually
+            {S.mealService.description}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Image Upload Section */}
           <div className="space-y-3">
-            <Label>Upload Screenshots</Label>
+            <Label>{S.mealService.labelUploadScreenshots}</Label>
             <div className="flex flex-col gap-3">
               <label
                 htmlFor="meal-image-upload"
@@ -1197,7 +1192,7 @@ const handleSubmit = () => {
             {/* Uploaded Images Preview */}
             {mealServiceImages.length > 0 && (
               <div className="space-y-2">
-                <Label>Uploaded Screenshots ({mealServiceImages.length})</Label>
+                <Label>{S.mealService.uploadedScreenshots(mealServiceImages.length)}</Label>
                 <div className="flex flex-wrap gap-2">
                   {mealServiceImages.map((img) => (
                     <div
@@ -1265,7 +1260,7 @@ const handleSubmit = () => {
           {/* Parsed/Added Meals List */}
           {mealServiceMeals.length > 0 && (
             <div className="space-y-2">
-              <Label>Meals from Your Service ({mealServiceMeals.length})</Label>
+              <Label>{S.mealService.mealsFromService(mealServiceMeals.length)}</Label>
               <div className="max-h-48 overflow-y-auto space-y-2 rounded-lg border p-3">
                 {mealServiceMeals.map((meal, index) => (
                   <div
@@ -1298,17 +1293,17 @@ const handleSubmit = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
             <Navigation className="h-5 w-5 text-chart-5" />
-            Eating Out / Ordering In
+            {S.eatingOut.title}
           </CardTitle>
           <CardDescription>
-            Select which meals you plan to eat at restaurants or order in this week
+            {S.eatingOut.description}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
-            <Label>Select meals you will eat out or order in</Label>
+            <Label>{S.eatingOut.labelSelectMeals}</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
+              {S.days.map((day) => (
                 <div key={day} className="space-y-2 rounded-lg border p-3">
                   <p className="text-sm font-medium">{day}</p>
                   <div className="flex flex-wrap gap-2">
@@ -1340,7 +1335,7 @@ const handleSubmit = () => {
             {eatingOutMeals.length > 0 && (
               <div className="rounded-lg bg-muted p-3">
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-medium text-foreground">{eatingOutMeals.length}</span> meal{eatingOutMeals.length !== 1 ? "s" : ""} will be skipped in your plan. No groceries will be added for these meals.
+                  {S.eatingOut.mealsSkipped(eatingOutMeals.length)}
                 </p>
               </div>
             )}
@@ -1348,117 +1343,69 @@ const handleSubmit = () => {
         </CardContent>
       </Card>
 
-      {/* Meal Examples & Notes */}
+      {/* Number of people - for ingredients & portions */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
-            <Cookie className="h-5 w-5 text-primary" />
-            Meal Examples & Notes
+            <Users className="h-5 w-5 text-chart-4" />
+            {S.numberOfPeople.title}
           </CardTitle>
           <CardDescription>
-            Share meals you enjoy to help us understand your taste - upload photos or type them
+            {S.numberOfPeople.description}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Image Upload Section */}
+        <CardContent>
           <div className="space-y-3">
-            <Label>Upload Photos of Meals You Enjoy</Label>
-            <label
-              htmlFor="example-image-upload"
-              className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/50 p-6 cursor-pointer hover:border-primary/50 hover:bg-muted transition-colors"
-            >
-              {isParsingExampleImage ? (
-                <>
-                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                  <span className="text-sm text-muted-foreground">Analyzing your meal photos...</span>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2">
-                    <CloudUpload className="h-6 w-6 text-muted-foreground" />
-                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <span className="text-sm font-medium">Upload photos of meals you love</span>
-                  <span className="text-xs text-muted-foreground">
-                    Restaurant dishes, home-cooked meals, recipes from Pinterest, etc.
-                  </span>
-                </>
-              )}
-              <input
-                id="example-image-upload"
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={handleExampleImageUpload}
-                disabled={isParsingExampleImage}
-              />
-            </label>
-
-            {/* Uploaded Images Preview */}
-            {mealExampleImages.length > 0 && (
-              <div className="space-y-2">
-                <Label>Uploaded Photos ({mealExampleImages.length})</Label>
-                <div className="flex flex-wrap gap-2">
-                  {mealExampleImages.map((img) => (
-                    <div
-                      key={img.id}
-                      className="relative group rounded-lg overflow-hidden border"
-                    >
-                      <img
-                        src={img.preview || "/placeholder.svg"}
-                        alt={img.name}
-                        className="h-20 w-20 object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeExampleImage(img.id)}
-                        className="absolute top-1 right-1 rounded-full bg-background/80 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="numberOfPeople" className="text-base font-medium">
+                {S.numberOfPeople.labelPeople}
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="numberOfPeople"
+                  type="number"
+                  value={numberOfPeople}
+                  onChange={(e) => setNumberOfPeople(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                  className="w-16 text-center"
+                  min={1}
+                  max={20}
+                />
               </div>
-            )}
-          </div>
-
-          {/* Divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">or describe meals</span>
+            <Slider
+              value={[numberOfPeople]}
+              onValueChange={([val]) => setNumberOfPeople(val)}
+              min={1}
+              max={20}
+              step={1}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>1</span>
+              <span>20</span>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="space-y-2">
-            <Label htmlFor="mealExamples">
-              Meals you enjoy
-            </Label>
-            <Textarea
-              id="mealExamples"
-              placeholder="e.g., Grilled salmon with vegetables, Chicken stir-fry, Quinoa salad with feta..."
-              value={mealExamples}
-              onChange={(e) => setMealExamples(e.target.value)}
-              rows={3}
-            />
-            <p className="text-xs text-muted-foreground">
-              Meals from uploaded photos will appear here automatically
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="additionalNotes">Additional Notes (Optional)</Label>
-            <Textarea
-              id="additionalNotes"
-              placeholder="e.g., Prefer quick meals under 30 minutes, cooking for 2 people, budget-friendly options..."
-              value={additionalNotes}
-              onChange={(e) => setAdditionalNotes(e.target.value)}
-              rows={2}
-            />
-          </div>
+      <SectionHeader title="Additional notes" />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            Anything else we should know?
+          </CardTitle>
+          <CardDescription>
+            e.g. time constraints, budget, household size, or anything else we should know
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            id="additionalNotes"
+            placeholder="e.g., Prefer quick meals under 30 minutes, cooking for 2 people, budget-friendly options..."
+            value={additionalNotes}
+            onChange={(e) => setAdditionalNotes(e.target.value)}
+            rows={3}
+          />
         </CardContent>
       </Card>
 
@@ -1471,12 +1418,12 @@ const handleSubmit = () => {
         {isLoading ? (
           <span className="flex items-center gap-2">
             <Orbit className="h-5 w-5 animate-spin" />
-            Generating your cosmic meal plan...
+            {S.submit.generating}
           </span>
         ) : (
           <span className="flex items-center gap-2">
             <Sparkles className="h-5 w-5" />
-            Launch Weekly Meal Plan
+            {S.submit.launchPlan}
           </span>
         )}
       </Button>
