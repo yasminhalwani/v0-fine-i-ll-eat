@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { PreferencesForm, type MealPreferences } from "@/components/preferences-form";
 import { WeeklyPlan, type DayPlan } from "@/components/weekly-plan";
-import { Sparkles, Loader2, Info, ChevronRight } from "lucide-react";
+import { Sparkles, Loader2, Info, ChevronRight, Check, Circle, Stethoscope, ClipboardList } from "lucide-react";
+import { AgentNotesCard } from "@/components/agent-notes-card";
 
 
 interface ShoppingItem {
@@ -12,23 +13,67 @@ interface ShoppingItem {
   category: string;
 }
 
+export interface AgentStep {
+  agent: "doctor" | "dietician" | "chef" | "planner";
+  input: string;
+  output: string;
+}
+
+const LOADING_STAGES = [
+  { id: "doctor", label: "Scanning your medical profile & mapping do's and don'ts…" },
+  { id: "dietician", label: "Designing your macro blueprint & meal guidelines…" },
+  { id: "chef", label: "Curating recipes that fit your vibe…" },
+  { id: "planner", label: "Assembling your cosmic week…" },
+] as const;
+
+/** Play a short ding when the meal plan is ready (Web Audio API, no file needed). */
+function playDoneDing() {
+  if (typeof window === "undefined") return;
+  try {
+    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    if (ctx.state === "suspended") ctx.resume();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.25);
+  } catch {
+    // Ignore if audio is blocked or unsupported
+  }
+}
+
 export default function MealPlannerPage() {
   const [preferences, setPreferences] = useState<MealPreferences | null>(null);
   const [weeklyPlan, setWeeklyPlan] = useState<DayPlan[] | null>(null);
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>([]);
   const [usedLlm, setUsedLlm] = useState<boolean | null>(null);
-  const [promptUsed, setPromptUsed] = useState<string | null>(null);
-  const [responseUsed, setResponseUsed] = useState<string | null>(null);
+  const [agentInputsOutputs, setAgentInputsOutputs] = useState<AgentStep[] | null>(null);
+  const [cookSchedule, setCookSchedule] = useState<string | null>(null);
+  const [ingredientReuse, setIngredientReuse] = useState<string | null>(null);
   const [fallbackReason, setFallbackReason] = useState<"no_api_key" | "llm_error" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingStageMessage, setLoadingStageMessage] = useState<string | null>(null);
+  const [loadingCurrentStage, setLoadingCurrentStage] = useState<string | null>(null);
   const [regeneratingMeal, setRegeneratingMeal] = useState<{
     dayIndex: number;
     mealType: string;
   } | null>(null);
   const [isRegeneratingAll, setIsRegeneratingAll] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
 
   const generateMealPlan = async (prefs: MealPreferences) => {
     setIsLoading(true);
+    setPlanError(null);
+    setLoadingStageMessage("Launching your crew…");
+    setLoadingCurrentStage(null);
     setPreferences(prefs);
 
     try {
@@ -43,17 +88,76 @@ export default function MealPlannerPage() {
         throw new Error(errorText || "Failed to generate meal plan");
       }
 
-      const data = await response.json();
-      setWeeklyPlan(data.plan);
-      setShoppingList(data.shoppingList || []);
-      setUsedLlm(data.usedLlm ?? null);
-      setPromptUsed(data.promptUsed ?? null);
-      setResponseUsed(data.responseUsed ?? null);
-      setFallbackReason(data.fallbackReason ?? null);
+      const contentType = response.headers.get("Content-Type") ?? "";
+      if (contentType.includes("text/event-stream")) {
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        if (!reader) throw new Error("No response body");
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() ?? "";
+          for (const part of parts) {
+            const dataLine = part.split("\n").find((l) => l.startsWith("data:"));
+            if (!dataLine) continue;
+            const payload = dataLine.replace(/^data:\s*/, "").trim();
+            if (payload === "[DONE]" || !payload) continue;
+            try {
+              const event = JSON.parse(payload) as {
+                stage?: string;
+                message?: string;
+                type?: string;
+                plan?: DayPlan[];
+                shoppingList?: ShoppingItem[];
+                usedLlm?: boolean;
+                agentInputsOutputs?: AgentStep[];
+                fallbackReason?: string;
+                error?: string;
+              };
+              if (event.stage) setLoadingCurrentStage(event.stage);
+              if (event.message) setLoadingStageMessage(event.message);
+              if (event.type === "result") {
+                setWeeklyPlan(event.plan ?? null);
+                setShoppingList(event.shoppingList ?? []);
+                setUsedLlm(event.usedLlm ?? null);
+                setAgentInputsOutputs(event.agentInputsOutputs ?? null);
+                setCookSchedule((event as { cookSchedule?: string }).cookSchedule ?? null);
+                setIngredientReuse((event as { ingredientReuse?: string }).ingredientReuse ?? null);
+                setFallbackReason(event.fallbackReason === "no_api_key" || event.fallbackReason === "llm_error" ? event.fallbackReason : null);
+                playDoneDing();
+              }
+              if (event.type === "error") {
+                const msg = event.error ?? "Something went wrong";
+                setPlanError(msg.includes("JSON") ? "The plan couldn’t be fully generated (response was cut off). Try again or use the static meal database." : msg);
+                break;
+              }
+            } catch (parseErr) {
+              if (parseErr instanceof SyntaxError) continue;
+              throw parseErr;
+            }
+          }
+        }
+      } else {
+        const data = await response.json();
+        setWeeklyPlan(data.plan);
+        setShoppingList(data.shoppingList || []);
+        setUsedLlm(data.usedLlm ?? null);
+        setAgentInputsOutputs(data.agentInputsOutputs ?? null);
+        setCookSchedule(data.cookSchedule ?? null);
+        setIngredientReuse(data.ingredientReuse ?? null);
+        setFallbackReason(data.fallbackReason ?? null);
+        playDoneDing();
+      }
     } catch (error) {
       console.error("Failed to generate meal plan:", error);
+      setPlanError(error instanceof Error ? error.message : "Failed to generate meal plan. Please try again.");
     } finally {
       setIsLoading(false);
+      setLoadingStageMessage(null);
+      setLoadingCurrentStage(null);
     }
   };
 
@@ -148,7 +252,10 @@ export default function MealPlannerPage() {
 
   const regenerateAll = async () => {
     if (!preferences) return;
+    setPlanError(null);
     setIsRegeneratingAll(true);
+    setLoadingStageMessage("Launching your crew…");
+    setLoadingCurrentStage(null);
 
     try {
       const response = await fetch("/api/generate-meal-plan", {
@@ -162,17 +269,75 @@ export default function MealPlannerPage() {
         throw new Error(errorText || "Failed to regenerate meal plan");
       }
 
-      const data = await response.json();
-      setWeeklyPlan(data.plan);
-      setShoppingList(data.shoppingList || []);
-      setUsedLlm(data.usedLlm ?? null);
-      setPromptUsed(data.promptUsed ?? null);
-      setResponseUsed(data.responseUsed ?? null);
-      setFallbackReason(data.fallbackReason ?? null);
+      const contentType = response.headers.get("Content-Type") ?? "";
+      if (contentType.includes("text/event-stream")) {
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        if (!reader) throw new Error("No response body");
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() ?? "";
+          for (const part of parts) {
+            const dataLine = part.split("\n").find((l) => l.startsWith("data:"));
+            if (!dataLine) continue;
+            const payload = dataLine.replace(/^data:\s*/, "").trim();
+            if (payload === "[DONE]" || !payload) continue;
+            try {
+              const event = JSON.parse(payload) as {
+                stage?: string;
+                message?: string;
+                type?: string;
+                plan?: DayPlan[];
+                shoppingList?: ShoppingItem[];
+                usedLlm?: boolean;
+                agentInputsOutputs?: AgentStep[];
+                fallbackReason?: string;
+                error?: string;
+              };
+              if (event.stage) setLoadingCurrentStage(event.stage);
+              if (event.message) setLoadingStageMessage(event.message);
+              if (event.type === "result") {
+                setWeeklyPlan(event.plan ?? null);
+                setShoppingList(event.shoppingList ?? []);
+                setUsedLlm(event.usedLlm ?? null);
+                setAgentInputsOutputs(event.agentInputsOutputs ?? null);
+                setCookSchedule((event as { cookSchedule?: string }).cookSchedule ?? null);
+                setIngredientReuse((event as { ingredientReuse?: string }).ingredientReuse ?? null);
+                setFallbackReason(event.fallbackReason === "no_api_key" || event.fallbackReason === "llm_error" ? event.fallbackReason : null);
+                playDoneDing();
+              }
+              if (event.type === "error") {
+                const msg = event.error ?? "Something went wrong";
+                setPlanError(msg.includes("JSON") ? "The plan couldn’t be fully generated (response was cut off). Try again." : msg);
+                break;
+              }
+            } catch (parseErr) {
+              if (parseErr instanceof SyntaxError) continue;
+              throw parseErr;
+            }
+          }
+        }
+      } else {
+        const data = await response.json();
+        setWeeklyPlan(data.plan);
+        setShoppingList(data.shoppingList || []);
+        setUsedLlm(data.usedLlm ?? null);
+        setAgentInputsOutputs(data.agentInputsOutputs ?? null);
+        setCookSchedule(data.cookSchedule ?? null);
+        setIngredientReuse(data.ingredientReuse ?? null);
+        setFallbackReason(data.fallbackReason ?? null);
+        playDoneDing();
+      }
     } catch (error) {
       console.error("Failed to regenerate meal plan:", error);
     } finally {
       setIsRegeneratingAll(false);
+      setLoadingStageMessage(null);
+      setLoadingCurrentStage(null);
     }
   };
 
@@ -180,25 +345,12 @@ export default function MealPlannerPage() {
     setWeeklyPlan(null);
     setShoppingList([]);
     setUsedLlm(null);
-    setPromptUsed(null);
-    setResponseUsed(null);
+    setAgentInputsOutputs(null);
+    setCookSchedule(null);
+    setIngredientReuse(null);
     setFallbackReason(null);
+    setPlanError(null);
   };
-
-  const LOADING_MESSAGES = [
-    "Analyzing your preferences…",
-    "Planning your week…",
-    "Choosing meals that fit your diet…",
-    "Almost there…",
-  ];
-  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
-  useEffect(() => {
-    if (!isLoading) return;
-    const interval = setInterval(() => {
-      setLoadingMessageIndex((i) => (i + 1) % LOADING_MESSAGES.length);
-    }, 2500);
-    return () => clearInterval(interval);
-  }, [isLoading]);
 
   return (
     <main className="min-h-screen bg-background relative overflow-hidden">
@@ -228,34 +380,43 @@ export default function MealPlannerPage() {
 
         {weeklyPlan ? (
           <div className="space-y-4">
-            {usedLlm === true && (
-              <div className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <Sparkles className="h-5 w-5 shrink-0 text-primary" />
-                  <p className="font-medium text-foreground">This plan was generated with AI</p>
-                </div>
-                {promptUsed != null && (
-                  <details className="group rounded-lg border border-border/50 bg-muted/30 overflow-hidden">
-                    <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground select-none">
-                      <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" />
-                      View prompt used for this plan
-                    </summary>
-                    <pre className="p-3 text-xs text-foreground/90 whitespace-pre-wrap break-words max-h-64 overflow-y-auto border-t border-border/50 bg-background/50">
-                      {promptUsed}
-                    </pre>
-                  </details>
-                )}
-                {responseUsed != null && (
-                  <details className="group rounded-lg border border-border/50 bg-muted/30 overflow-hidden">
-                    <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground select-none">
-                      <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" />
-                      View AI response used for this plan
-                    </summary>
-                    <pre className="p-3 text-xs text-foreground/90 whitespace-pre-wrap break-words max-h-64 overflow-y-auto border-t border-border/50 bg-background/50">
-                      {responseUsed}
-                    </pre>
-                  </details>
-                )}
+            {isRegeneratingAll && (
+              <div className="rounded-xl border border-primary/20 bg-card/80 backdrop-blur-sm p-4">
+                <p className="font-medium text-foreground mb-3" role="status" aria-live="polite">
+                  Regenerating your plan…
+                </p>
+                <ul className="space-y-2" aria-label="Processing stages">
+                  {LOADING_STAGES.map((stage, index) => {
+                    const currentIndex = loadingCurrentStage
+                      ? LOADING_STAGES.findIndex((s) => s.id === loadingCurrentStage)
+                      : -1;
+                    const isCompleted = currentIndex >= 0 && index < currentIndex;
+                    const isCurrent = loadingCurrentStage === stage.id;
+                    return (
+                      <li
+                        key={stage.id}
+                        className={`flex items-center gap-3 text-sm transition-colors ${
+                          isCompleted ? "text-muted-foreground" : isCurrent ? "text-foreground font-medium" : "text-muted-foreground"
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-primary shrink-0">
+                            <Check className="h-3 w-3" strokeWidth={2.5} />
+                          </span>
+                        ) : isCurrent ? (
+                          <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
+                        ) : (
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full border border-border shrink-0" aria-hidden>
+                            <Circle className="h-2.5 w-2.5 text-muted-foreground" />
+                          </span>
+                        )}
+                        <span className={isCompleted ? "line-through decoration-muted-foreground/60" : ""}>
+                          {stage.label}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
             {usedLlm === false && (
@@ -286,6 +447,8 @@ export default function MealPlannerPage() {
             <WeeklyPlan
               plan={weeklyPlan}
               shoppingList={shoppingList}
+              cookSchedule={usedLlm === true ? cookSchedule : null}
+              ingredientReuse={usedLlm === true ? ingredientReuse : null}
               onBack={goBack}
               onRegenerateMeal={regenerateMeal}
               onRegenerateDay={regenerateDay}
@@ -293,27 +456,124 @@ export default function MealPlannerPage() {
               regeneratingMeal={regeneratingMeal}
               isRegeneratingAll={isRegeneratingAll}
             />
+            {usedLlm === true && agentInputsOutputs && agentInputsOutputs.length > 0 && (() => {
+              const doctorStep = agentInputsOutputs.find((s) => s.agent === "doctor");
+              const dieticianStep = agentInputsOutputs.find((s) => s.agent === "dietician");
+              return (doctorStep ?? dieticianStep) ? (
+                <div className="space-y-4 mt-8">
+                  <h2 className="text-lg font-semibold text-foreground border-b border-border pb-2">
+                    For your reference
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {doctorStep && (
+                      <AgentNotesCard
+                        type="doctor"
+                        output={doctorStep.output}
+                        title="Doctor's notes"
+                        subtitle="What to avoid, what's advised, and when to take medication."
+                        accentBg="bg-chart-2/10"
+                      />
+                    )}
+                    {dieticianStep && (
+                      <AgentNotesCard
+                        type="dietician"
+                        output={dieticianStep.output}
+                        title="Dietician's recommendations"
+                        subtitle="Supplements Recommendations."
+                        accentBg="bg-chart-4/10"
+                      />
+                    )}
+                  </div>
+                </div>
+              ) : null;
+            })()}
+            {usedLlm === true && (
+              <div className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 flex flex-col gap-3 mt-8">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-5 w-5 shrink-0 text-primary" />
+                  <p className="font-medium text-foreground">Raw agent input & output (Doctor → Dietician → Chef → Planner)</p>
+                </div>
+                {agentInputsOutputs && agentInputsOutputs.length > 0 && (
+                  <div className="space-y-2">
+                    {agentInputsOutputs.map((step) => (
+                      <details key={step.agent} className="group rounded-lg border border-border/50 bg-muted/30 overflow-hidden">
+                        <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground select-none capitalize">
+                          <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" />
+                          {step.agent}: input & output
+                        </summary>
+                        <div className="border-t border-border/50 divide-y divide-border/50">
+                          <div className="p-3">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Input</p>
+                            <pre className="text-xs text-foreground/90 whitespace-pre-wrap break-words max-h-48 overflow-y-auto bg-background/50 rounded p-2">
+                              {step.input}
+                            </pre>
+                          </div>
+                          <div className="p-3">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Output</p>
+                            <pre className="text-xs text-foreground/90 whitespace-pre-wrap break-words max-h-48 overflow-y-auto bg-background/50 rounded p-2">
+                              {step.output}
+                            </pre>
+                          </div>
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div className="max-w-2xl mx-auto space-y-4">
+            {planError && (
+              <div
+                className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 flex items-start gap-3"
+                role="alert"
+              >
+                <Info className="h-5 w-5 shrink-0 mt-0.5 text-destructive" />
+                <div>
+                  <p className="font-medium text-foreground">Couldn’t generate your plan</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">{planError}</p>
+                </div>
+              </div>
+            )}
             {isLoading && (
               <div className="rounded-xl border border-primary/20 bg-card/80 backdrop-blur-sm p-5 shadow-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <Loader2 className="h-6 w-6 text-primary animate-spin shrink-0" />
-                  <p className="font-medium text-foreground">
-                    {LOADING_MESSAGES[loadingMessageIndex]}
-                  </p>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full w-1/3 rounded-full bg-gradient-to-r from-primary to-accent animate-progress-indeterminate"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label="Generating meal plan"
-                  />
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="font-medium text-foreground mb-4" role="status" aria-live="polite">
+                  {loadingCurrentStage ? "Your crew is on it…" : "Launching your crew…"}
+                </p>
+                <ul className="space-y-3" aria-label="Processing stages">
+                  {LOADING_STAGES.map((stage, index) => {
+                    const currentIndex = loadingCurrentStage
+                      ? LOADING_STAGES.findIndex((s) => s.id === loadingCurrentStage)
+                      : -1;
+                    const isCompleted = currentIndex >= 0 && index < currentIndex;
+                    const isCurrent = loadingCurrentStage === stage.id;
+                    return (
+                      <li
+                        key={stage.id}
+                        className={`flex items-center gap-3 text-sm transition-colors ${
+                          isCompleted ? "text-muted-foreground" : isCurrent ? "text-foreground font-medium" : "text-muted-foreground"
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary shrink-0">
+                            <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                          </span>
+                        ) : isCurrent ? (
+                          <Loader2 className="h-5 w-5 text-primary animate-spin shrink-0" />
+                        ) : (
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full border border-border shrink-0" aria-hidden>
+                            <Circle className="h-3 w-3 text-muted-foreground" />
+                          </span>
+                        )}
+                        <span className={isCompleted ? "line-through decoration-muted-foreground/60" : ""}>
+                          {stage.label}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="mt-4 text-sm text-muted-foreground">
                   This can take up to a minute when using AI — thanks for waiting!
                 </p>
               </div>

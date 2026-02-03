@@ -159,6 +159,17 @@ export const PREFERENCES_FORM_STRINGS = {
     sliderRange: { min: "1", max: "20" },
   },
 
+  // Recipe variety (ingredient reuse)
+  ingredientVariety: {
+    title: "Recipe variety",
+    description:
+      "How much do you want to reuse the same ingredients across recipes? Less variety means fewer different ingredients, less shopping, and lower cost.",
+    label: "Ingredient reuse",
+    low: "Reuse a lot (save $ & time)",
+    high: "Lots of variety (more different ingredients)",
+    sliderRange: { min: "1", max: "5" },
+  },
+
   // Additional notes
   additionalNotes: {
     cardTitle: "Anything else we should know?",

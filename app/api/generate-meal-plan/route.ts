@@ -1,7 +1,16 @@
 import { normalizePreferences, selectMeal, type MealPreferences } from "@/lib/meal-filter";
 import { generateShoppingList } from "@/lib/shopping-list";
 import { Meal, coerceToMeal } from "@/lib/meal-database";
-import { readPromptFile, substitutePromptVariables, promptLlm, parseJsonFromLlmResponse } from "@/lib/prompt-llm";
+import { parseJsonFromLlmResponse } from "@/lib/prompt-llm";
+import { runDoctor, runDietician, runChef, runPlanner, type AgentStep } from "@/lib/agents";
+
+/** Stage messages shown in the UI while each agent runs. */
+export const STAGE_MESSAGES: Record<string, string> = {
+  doctor: "Scanning your medical profile & mapping do's and don'ts…",
+  dietician: "Designing your macro blueprint & meal guidelines…",
+  chef: "Curating recipes that fit your vibe…",
+  planner: "Assembling your cosmic week…",
+};
 
 // Vercel: use Node runtime (required for fs, long fetch). Pro allows 60s; Hobby allows 10s.
 export const runtime = "nodejs";
@@ -75,29 +84,6 @@ function isEatingOut(day: string, mealType: "breakfast" | "lunch" | "dinner", ea
   return eatingOutMeals.includes(mealKey);
 }
 
-// Build variables for the weekly meal-plan prompt from user preferences
-function buildWeeklyPlanPromptVariables(preferences: MealPreferences): Record<string, string | number | string[]> {
-  return {
-    calories: preferences.calories,
-    proteinPercent: preferences.proteinPercent,
-    carbsPercent: preferences.carbsPercent,
-    fatsPercent: preferences.fatsPercent,
-    proteinSources: preferences.proteinSources,
-    carbSources: preferences.carbSources,
-    fatSources: preferences.fatSources,
-    allergies: preferences.allergies,
-    restrictions: preferences.restrictions,
-    medicalConditions: preferences.medicalConditions,
-    medications: preferences.medications,
-    cuisines: preferences.cuisines,
-    cuisineNotes: preferences.cuisineNotes,
-    fridgeInventory: preferences.fridgeInventory,
-    cookTimesPerWeek: preferences.cookTimesPerWeek,
-    mealExamples: preferences.mealExamples,
-    additionalNotes: preferences.additionalNotes,
-  };
-}
-
 export async function POST(req: Request) {
   try {
     const raw = await req.json();
@@ -114,51 +100,100 @@ export async function POST(req: Request) {
 
     if (useLlm) {
       try {
-        const variables = buildWeeklyPlanPromptVariables(preferences);
-        const template = await readPromptFile("generate-weekly-meal-plan.txt");
-        const promptUsed = substitutePromptVariables(template, variables);
-        const responseText = await promptLlm(promptUsed);
-        await saveLlmResponseToFile(responseText);
-        const parsed = parseJsonFromLlmResponse(responseText);
-        const rawMeals = Array.isArray(parsed) ? parsed : [];
-        const meals: Meal[] = rawMeals.slice(0, 21).map((obj, i) => {
-          const prefix = i < 7 ? "bf" : i < 14 ? "ln" : "dn";
-          return coerceToMeal(obj, prefix);
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          async start(controller) {
+            const send = (obj: object) =>
+              controller.enqueue(encoder.encode("data: " + JSON.stringify(obj) + "\n\n"));
+
+            try {
+              send({ stage: "doctor", message: STAGE_MESSAGES.doctor });
+              const doctor = await runDoctor(preferences);
+
+              send({ stage: "dietician", message: STAGE_MESSAGES.dietician });
+              const dietician = await runDietician(preferences, doctor.output);
+
+              send({ stage: "chef", message: STAGE_MESSAGES.chef });
+              const chef = await runChef(preferences, doctor.output, dietician.output);
+
+              send({ stage: "planner", message: STAGE_MESSAGES.planner });
+              const planner = await runPlanner(preferences, doctor.output, dietician.output, chef.output);
+
+              const plannerRawOutput = planner.output;
+              await saveLlmResponseToFile(plannerRawOutput);
+              const parsed = parseJsonFromLlmResponse(plannerRawOutput) as
+                | unknown[]
+                | { meals?: unknown[]; cookSchedule?: string; ingredientReuse?: string };
+              const rawMeals = Array.isArray(parsed)
+                ? parsed
+                : parsed?.meals && Array.isArray(parsed.meals)
+                  ? parsed.meals
+                  : [];
+              const cookSchedule =
+                parsed && typeof parsed === "object" && "cookSchedule" in parsed
+                  ? String((parsed as { cookSchedule?: string }).cookSchedule ?? "").trim() || undefined
+                  : undefined;
+              const ingredientReuse =
+                parsed && typeof parsed === "object" && "ingredientReuse" in parsed
+                  ? String((parsed as { ingredientReuse?: string }).ingredientReuse ?? "").trim() || undefined
+                  : undefined;
+              const meals: Meal[] = rawMeals.slice(0, 21).map((obj, i) => {
+                const prefix = i < 7 ? "bf" : i < 14 ? "ln" : "dn";
+                return coerceToMeal(obj, prefix);
+              });
+
+              const weeklyPlan: DayPlan[] = [];
+              const allMeals: Meal[] = [];
+
+              for (let i = 0; i < 7; i++) {
+                const day = DAYS_OF_WEEK[i];
+                const breakfast = isEatingOut(day, "breakfast", preferences.eatingOutMeals)
+                  ? createEatingOutMeal("breakfast")
+                  : meals[i] ?? createEatingOutMeal("breakfast");
+                const lunch = isEatingOut(day, "lunch", preferences.eatingOutMeals)
+                  ? createEatingOutMeal("lunch")
+                  : meals[7 + i] ?? createEatingOutMeal("lunch");
+                const dinner = isEatingOut(day, "dinner", preferences.eatingOutMeals)
+                  ? createEatingOutMeal("dinner")
+                  : meals[14 + i] ?? createEatingOutMeal("dinner");
+
+                if (breakfast.name !== "Eating Out") allMeals.push(breakfast);
+                if (lunch.name !== "Eating Out") allMeals.push(lunch);
+                if (dinner.name !== "Eating Out") allMeals.push(dinner);
+
+                weeklyPlan.push({ day, breakfast, lunch, dinner });
+              }
+
+              const shoppingList = generateShoppingList(allMeals, preferences.fridgeInventory);
+              const steps: AgentStep[] = [doctor, dietician, chef, planner];
+              send({
+                type: "result",
+                plan: weeklyPlan,
+                shoppingList,
+                usedLlm: true,
+                agentInputsOutputs: steps,
+                cookSchedule,
+                ingredientReuse,
+              });
+            } catch (err) {
+              send({ type: "error", error: err instanceof Error ? err.message : String(err) });
+            } finally {
+              controller.close();
+            }
+          },
         });
 
-        const weeklyPlan: DayPlan[] = [];
-        const allMeals: Meal[] = [];
-
-        for (let i = 0; i < 7; i++) {
-          const day = DAYS_OF_WEEK[i];
-          const breakfast = isEatingOut(day, "breakfast", preferences.eatingOutMeals)
-            ? createEatingOutMeal("breakfast")
-            : meals[i] ?? createEatingOutMeal("breakfast");
-          const lunch = isEatingOut(day, "lunch", preferences.eatingOutMeals)
-            ? createEatingOutMeal("lunch")
-            : meals[7 + i] ?? createEatingOutMeal("lunch");
-          const dinner = isEatingOut(day, "dinner", preferences.eatingOutMeals)
-            ? createEatingOutMeal("dinner")
-            : meals[14 + i] ?? createEatingOutMeal("dinner");
-
-          if (breakfast.name !== "Eating Out") allMeals.push(breakfast);
-          if (lunch.name !== "Eating Out") allMeals.push(lunch);
-          if (dinner.name !== "Eating Out") allMeals.push(dinner);
-
-          weeklyPlan.push({ day, breakfast, lunch, dinner });
-        }
-
-        const shoppingList = generateShoppingList(allMeals, preferences.fridgeInventory);
-        return Response.json({ plan: weeklyPlan, shoppingList, usedLlm: true, promptUsed, responseUsed: responseText });
-      } catch (llmError) {
+        return new Response(stream, {
+          headers: {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-store",
+            Connection: "keep-alive",
+          },
+        });
+      } catch (streamError) {
         fallbackReason = "llm_error";
-        const message = llmError instanceof Error ? llmError.message : String(llmError);
-        console.error("[generate-meal-plan] LLM failed, falling back to static database:", message);
-        if (message.includes("timeout") || message.includes("aborted")) {
-          console.warn(
-            "[generate-meal-plan] Tip: Vercel Hobby allows 10s; Pro allows 60s. Set OPENROUTER_MODEL=meta-llama/llama-3.1-8b-instruct for faster responses."
-          );
-        }
+        const message = streamError instanceof Error ? streamError.message : String(streamError);
+        console.error("[generate-meal-plan] Stream/agents failed, falling back to static database:", message);
         // Fall through to static plan
       }
     }

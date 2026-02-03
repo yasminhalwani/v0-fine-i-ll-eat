@@ -4,7 +4,7 @@ import { MealCard, type Meal } from "@/components/meal-card";
 import { ShoppingList, type ShoppingItem } from "@/components/shopping-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, RefreshCw, Orbit } from "lucide-react";
+import { ArrowLeft, RefreshCw, Orbit, ClipboardList } from "lucide-react";
 
 export interface DayPlan {
   day: string;
@@ -16,12 +16,37 @@ export interface DayPlan {
 interface WeeklyPlanProps {
   plan: DayPlan[];
   shoppingList: ShoppingItem[];
+  cookSchedule?: string | null;
+  ingredientReuse?: string | null;
   onBack: () => void;
   onRegenerateMeal: (dayIndex: number, mealType: "breakfast" | "lunch" | "dinner") => void;
   onRegenerateDay: (dayIndex: number) => void;
   onRegenerateAll: () => void;
   regeneratingMeal: { dayIndex: number; mealType: string } | null;
   isRegeneratingAll: boolean;
+}
+
+const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/** Split cookSchedule by day headers (e.g. "Monday: ...") and return that day's snippet, or full text if not parseable. */
+function getCookScheduleForDay(cookSchedule: string, dayName: string): string {
+  const dayLower = dayName.toLowerCase();
+  const chunks = cookSchedule.split(/\s*(?=Monday:|Tuesday:|Wednesday:|Thursday:|Friday:|Saturday:|Sunday:)/i);
+  const parts: { day: string; text: string }[] = [];
+  for (const chunk of chunks) {
+    const trimmed = chunk.trim();
+    if (!trimmed) continue;
+    const dayMatch = trimmed.match(/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*:?\s*/i);
+    if (dayMatch) {
+      const day = dayMatch[1];
+      const text = trimmed.slice(dayMatch[0].length).trim();
+      if (day) parts.push({ day: day.toLowerCase(), text });
+    }
+  }
+  if (parts.length === 0) return cookSchedule.trim();
+  const forDay = parts.find((p) => dayLower.startsWith(p.day) || p.day.startsWith(dayLower.slice(0, 3)));
+  if (forDay) return forDay.text;
+  return cookSchedule.trim();
 }
 
 const dayColors = [
@@ -37,6 +62,8 @@ const dayColors = [
 export function WeeklyPlan({
   plan,
   shoppingList,
+  cookSchedule,
+  ingredientReuse,
   onBack,
   onRegenerateMeal,
   onRegenerateDay,
@@ -44,6 +71,8 @@ export function WeeklyPlan({
   regeneratingMeal,
   isRegeneratingAll,
 }: WeeklyPlanProps) {
+  const hasPlannerNotes = !!(cookSchedule?.trim() || ingredientReuse?.trim());
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -76,53 +105,77 @@ export function WeeklyPlan({
 
       <div className="space-y-6">
         {plan.map((day, dayIndex) => (
-          <Card key={day.day} className={`${dayColors[dayIndex]} overflow-hidden`}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl text-foreground">{day.day}</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRegenerateDay(dayIndex)}
-                  className="gap-1 text-muted-foreground hover:text-foreground"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  Refresh day
-                </Button>
+          <div key={day.day} className="space-y-3">
+            {hasPlannerNotes && (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex flex-col gap-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <ClipboardList className="h-4 w-4 text-primary shrink-0" />
+                  Planner&apos;s notes — {day.day}
+                </div>
+                {cookSchedule && (
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">When to cook</span>
+                    <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed mt-0.5">
+                      {getCookScheduleForDay(cookSchedule, day.day)}
+                    </p>
+                  </div>
+                )}
+                {ingredientReuse && (
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Ingredient reuse</span>
+                    <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed mt-0.5">{ingredientReuse}</p>
+                  </div>
+                )}
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <MealCard
-                  meal={day.breakfast}
-                  mealType="breakfast"
-                  onRegenerate={() => onRegenerateMeal(dayIndex, "breakfast")}
-                  isRegenerating={
-                    regeneratingMeal?.dayIndex === dayIndex &&
-                    regeneratingMeal?.mealType === "breakfast"
-                  }
-                />
-                <MealCard
-                  meal={day.lunch}
-                  mealType="lunch"
-                  onRegenerate={() => onRegenerateMeal(dayIndex, "lunch")}
-                  isRegenerating={
-                    regeneratingMeal?.dayIndex === dayIndex &&
-                    regeneratingMeal?.mealType === "lunch"
-                  }
-                />
-                <MealCard
-                  meal={day.dinner}
-                  mealType="dinner"
-                  onRegenerate={() => onRegenerateMeal(dayIndex, "dinner")}
-                  isRegenerating={
-                    regeneratingMeal?.dayIndex === dayIndex &&
-                    regeneratingMeal?.mealType === "dinner"
-                  }
-                />
-              </div>
-            </CardContent>
-          </Card>
+            )}
+            <Card className={`${dayColors[dayIndex]} overflow-hidden`}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl text-foreground">{day.day}</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRegenerateDay(dayIndex)}
+                    className="gap-1 text-muted-foreground hover:text-foreground"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Refresh day
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <MealCard
+                    meal={day.breakfast}
+                    mealType="breakfast"
+                    onRegenerate={() => onRegenerateMeal(dayIndex, "breakfast")}
+                    isRegenerating={
+                      regeneratingMeal?.dayIndex === dayIndex &&
+                      regeneratingMeal?.mealType === "breakfast"
+                    }
+                  />
+                  <MealCard
+                    meal={day.lunch}
+                    mealType="lunch"
+                    onRegenerate={() => onRegenerateMeal(dayIndex, "lunch")}
+                    isRegenerating={
+                      regeneratingMeal?.dayIndex === dayIndex &&
+                      regeneratingMeal?.mealType === "lunch"
+                    }
+                  />
+                  <MealCard
+                    meal={day.dinner}
+                    mealType="dinner"
+                    onRegenerate={() => onRegenerateMeal(dayIndex, "dinner")}
+                    isRegenerating={
+                      regeneratingMeal?.dayIndex === dayIndex &&
+                      regeneratingMeal?.mealType === "dinner"
+                    }
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         ))}
       </div>
 

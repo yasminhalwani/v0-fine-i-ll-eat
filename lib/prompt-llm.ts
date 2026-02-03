@@ -104,11 +104,59 @@ export async function promptLlmWithTemplate(
   return promptLlm(prompt, model);
 }
 
-/** Strip markdown code fence if present and parse JSON. */
-export function parseJsonFromLlmResponse(raw: string): unknown {
-  let text = raw.trim();
+/** Strip markdown code fence if present. */
+function stripCodeFence(text: string): string {
+  let out = text.trim();
   const codeFence = /^```(?:json)?\s*\n?([\s\S]*?)```\s*$/;
-  const match = text.match(codeFence);
-  if (match) text = match[1].trim();
-  return JSON.parse(text) as unknown;
+  const match = out.match(codeFence);
+  if (match) out = match[1].trim();
+  return out;
+}
+
+/**
+ * Try to salvage a truncated JSON array when the LLM output is cut off.
+ * - Tries appending "]" or "}]" in case the array/object wasn't closed.
+ * - Tries truncating at the last "}," to get complete meal objects only.
+ */
+function trySalvageMealsArray(text: string): unknown[] | null {
+  if (!text.startsWith("[")) return null;
+  const attempts = [
+    () => JSON.parse(text + "]") as unknown[],
+    () => JSON.parse(text + "\"}]") as unknown[], // close string, object, array
+    () => JSON.parse(text.replace(/,(\s*)$/, "$1]")) as unknown[], // trailing comma
+  ];
+  for (const attempt of attempts) {
+    try {
+      const parsed = attempt();
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {
+      /* try next */
+    }
+  }
+  // Find last "}," and parse [ ... up to that point ]
+  let lastIdx = -1;
+  for (let i = 0; i < text.length - 1; i++) {
+    if (text[i] === "}" && text[i + 1] === ",") lastIdx = i + 2;
+  }
+  if (lastIdx > 10) {
+    try {
+      const parsed = JSON.parse(text.slice(0, lastIdx) + "]") as unknown[];
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
+/** Strip markdown code fence if present and parse JSON. Tries to salvage truncated meal arrays. */
+export function parseJsonFromLlmResponse(raw: string): unknown {
+  const text = stripCodeFence(raw);
+  try {
+    return JSON.parse(text) as unknown;
+  } catch (firstErr) {
+    const salvaged = trySalvageMealsArray(text);
+    if (salvaged != null && salvaged.length > 0) return salvaged;
+    throw firstErr;
+  }
 }

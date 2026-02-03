@@ -44,6 +44,8 @@ export interface MealPreferences {
   mealServiceMeals: string[];
   eatingOutMeals: string[];
   numberOfPeople: number;
+  /** 1–5: how much to reuse ingredients (1 = max reuse / save $ & time, 5 = lots of variety) */
+  ingredientVariety: number;
   mealExamples: string;
   additionalNotes: string;
 }
@@ -84,6 +86,7 @@ export function PreferencesForm({ onSubmit, isLoading }: PreferencesFormProps) {
   const [isParsingImage, setIsParsingImage] = useState(false);
   const [eatingOutMeals, setEatingOutMeals] = useState<string[]>([]);
   const [numberOfPeople, setNumberOfPeople] = useState(2);
+  const [ingredientVariety, setIngredientVariety] = useState(3);
   const [mealExampleImages, setMealExampleImages] = useState<{ id: string; preview: string; name: string }[]>([]);
   const [isParsingExampleImage, setIsParsingExampleImage] = useState(false);
   const [mealExamples, setMealExamples] = useState("");
@@ -322,6 +325,7 @@ const handleSubmit = () => {
       mealServiceMeals,
       eatingOutMeals,
       numberOfPeople,
+      ingredientVariety,
       mealExamples,
       additionalNotes,
     });
@@ -1383,6 +1387,47 @@ const handleSubmit = () => {
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>1</span>
               <span>20</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recipe variety (ingredient reuse) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-foreground">
+            <Activity className="h-5 w-5 text-chart-3" />
+            {S.ingredientVariety.title}
+          </CardTitle>
+          <CardDescription>
+            {S.ingredientVariety.description}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="ingredientVariety" className="text-base font-medium">
+                {S.ingredientVariety.label}
+              </Label>
+              <span className="text-sm text-muted-foreground">
+                {ingredientVariety === 1 && S.ingredientVariety.low}
+                {ingredientVariety === 2 && "Some reuse"}
+                {ingredientVariety === 3 && "Balanced"}
+                {ingredientVariety === 4 && "More variety"}
+                {ingredientVariety === 5 && S.ingredientVariety.high}
+              </span>
+            </div>
+            <Slider
+              value={[ingredientVariety]}
+              onValueChange={([val]) => setIngredientVariety(val)}
+              min={1}
+              max={5}
+              step={1}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{S.ingredientVariety.low}</span>
+              <span>{S.ingredientVariety.high}</span>
             </div>
           </div>
         </CardContent>

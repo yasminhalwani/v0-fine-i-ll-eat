@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Clock, Users, Sparkles } from "lucide-react";
+import { RefreshCw, Clock, Users, Sparkles, UtensilsCrossed } from "lucide-react";
 
 
 export interface Meal {
@@ -35,7 +35,51 @@ const mealTypeIcons = {
   dinner: "moon",
 };
 
+const isEatingOut = (meal: Meal) => meal.name === "Eating Out";
+
 export function MealCard({ meal, mealType, onRegenerate, isRegenerating }: MealCardProps) {
+  if (isEatingOut(meal)) {
+    return (
+      <Card className="h-full transition-all hover:shadow-lg border-2 border-amber-400/50 bg-gradient-to-br from-amber-500/15 to-orange-500/10 backdrop-blur-sm">
+        <CardHeader className="pb-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className="bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40">
+                  {mealType.charAt(0).toUpperCase() + mealType.slice(1)}
+                </Badge>
+              </div>
+              <CardTitle className="text-base leading-tight text-amber-800 dark:text-amber-200 line-clamp-2 flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400/30 text-amber-600 dark:text-amber-400 shrink-0">
+                  <UtensilsCrossed className="h-4 w-4" />
+                </span>
+                {meal.name}
+              </CardTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 h-8 w-8 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20"
+              onClick={onRegenerate}
+              disabled={isRegenerating}
+            >
+              <RefreshCw className={`h-4 w-4 ${isRegenerating ? "animate-spin" : ""}`} />
+              <span className="sr-only">Regenerate meal</span>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-sm text-amber-700/90 dark:text-amber-300/90 line-clamp-2">
+            {meal.description}
+          </p>
+          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+            No cooking — treat yourself!
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="h-full transition-all hover:shadow-lg hover:border-primary/30 bg-card/80 backdrop-blur-sm">
       <CardHeader className="pb-2">

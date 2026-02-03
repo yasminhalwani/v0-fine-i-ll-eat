@@ -20,6 +20,8 @@ export interface MealPreferences {
   eatingOutMeals: string[];
   /** How many times per week the user wants to cook (1–7). Used for batch-cooking suggestions (e.g. stew for 2 meals). */
   cookTimesPerWeek: number;
+  /** How much to reuse the same ingredients across recipes (1–5). 1 = maximize reuse (save money/time, less shopping), 5 = lots of variety (more different ingredients). */
+  ingredientVariety: number;
   mealExamples: string;
   additionalNotes: string;
 }
@@ -46,6 +48,9 @@ export function normalizePreferences(input: Partial<MealPreferences>): MealPrefe
     cookTimesPerWeek: typeof input.cookTimesPerWeek === "number" && input.cookTimesPerWeek >= 1 && input.cookTimesPerWeek <= 7
       ? Math.round(input.cookTimesPerWeek)
       : 7,
+    ingredientVariety: typeof input.ingredientVariety === "number" && input.ingredientVariety >= 1 && input.ingredientVariety <= 5
+      ? Math.round(input.ingredientVariety)
+      : 3,
     mealExamples: typeof input.mealExamples === "string" ? input.mealExamples : "",
     additionalNotes: typeof input.additionalNotes === "string" ? input.additionalNotes : "",
   };
