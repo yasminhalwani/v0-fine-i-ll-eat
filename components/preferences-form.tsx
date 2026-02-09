@@ -11,7 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
   X, Plus, Zap, Atom, Activity, Snowflake, Box, CloudUpload, ImageIcon, Loader2, Navigation, 
-  Beef, Wheat, Droplets, Globe, Cookie, Sparkles, ShieldAlert, Orbit, Library, Pill, Users 
+  Beef, Wheat, Droplets, Globe, Cookie, Sparkles, ShieldAlert, Orbit, Library, Pill, Users, FileText 
 } from "lucide-react";
 import {
   PREFERENCES_FORM_STRINGS as S,
@@ -78,6 +78,8 @@ export function PreferencesForm({ onSubmit, isLoading }: PreferencesFormProps) {
   const [cuisineNotes, setCuisineNotes] = useState("");
   const [recipeInventory, setRecipeInventory] = useState<string[]>([]);
   const [currentRecipe, setCurrentRecipe] = useState("");
+  const [recipeInventoryImages, setRecipeInventoryImages] = useState<{ id: string; preview: string; name: string }[]>([]);
+  const [isParsingRecipeUpload, setIsParsingRecipeUpload] = useState(false);
   const [fridgeInventory, setFridgeInventory] = useState<string[]>([]);
   const [currentFridgeItem, setCurrentFridgeItem] = useState("");
   const [mealServiceMeals, setMealServiceMeals] = useState<string[]>([]);
@@ -167,6 +169,113 @@ export function PreferencesForm({ onSubmit, isLoading }: PreferencesFormProps) {
 
   const removeRecipe = (recipe: string) => {
     setRecipeInventory((prev) => prev.filter((r) => r !== recipe));
+  };
+
+  /** Parse plain text into recipe names (lines and comma-separated), add unique to inventory. */
+  const addRecipesFromText = (text: string) => {
+    const lines = text
+      .split(/\n|,/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !s.startsWith("I "));
+    setRecipeInventory((prev) => {
+      const next = [...prev];
+      for (const line of lines) {
+        if (line && !next.includes(line)) next.push(line);
+      }
+      return next;
+    });
+  };
+
+  const handleRecipeFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsParsingRecipeUpload(true);
+
+    const tasks: Promise<void>[] = [];
+
+    for (const file of Array.from(files)) {
+      const type = (file.type || "").toLowerCase();
+      const name = (file.name || "").toLowerCase();
+
+      if (type.startsWith("image/")) {
+        tasks.push(
+          new Promise<void>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+              const base64Data = event.target?.result as string;
+              const imageId = `recipe-img-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+              setRecipeInventoryImages((prev) => [
+                ...prev,
+                { id: imageId, preview: base64Data, name: file.name },
+              ]);
+              try {
+                const response = await fetch("/api/parse-meal-image", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    imageData: base64Data,
+                    context: "recipe list — extract recipe names or titles only, one per line",
+                  }),
+                });
+                if (response.ok) {
+                  const data = await response.json();
+                  const parsed = (data.meals || "")
+                    .split("\n")
+                    .map((m: string) => m.trim())
+                    .filter((m: string) => m.length > 0 && !m.startsWith("I "));
+                  setRecipeInventory((prev) => {
+                    const next = [...prev];
+                    for (const m of parsed) {
+                      if (m && !next.includes(m)) next.push(m);
+                    }
+                    return next;
+                  });
+                }
+              } catch (err) {
+                console.error("Failed to parse recipe image:", err);
+              }
+              resolve();
+            };
+            reader.onerror = () => resolve();
+            reader.readAsDataURL(file);
+          })
+        );
+      } else if (type === "text/plain" || name.endsWith(".txt")) {
+        tasks.push(
+          file.text().then((text) => {
+            addRecipesFromText(text);
+          })
+        );
+      } else if (type === "application/pdf" || name.endsWith(".pdf")) {
+        tasks.push(
+          (async () => {
+            try {
+              const formData = new FormData();
+              formData.append("file", file);
+              const response = await fetch("/api/extract-document-text", {
+                method: "POST",
+                body: formData,
+              });
+              if (response.ok) {
+                const data = await response.json();
+                addRecipesFromText(data.text || "");
+              }
+            } catch (err) {
+              console.error("Failed to extract PDF text:", err);
+            }
+          })()
+        );
+      }
+    }
+
+    await Promise.all(tasks);
+    setIsParsingRecipeUpload(false);
+    e.target.value = "";
+  };
+
+  const removeRecipeImage = (imageId: string) => {
+    setRecipeInventoryImages((prev) => prev.filter((img) => img.id !== imageId));
   };
 
   const addFridgeItem = () => {
@@ -482,19 +591,88 @@ const handleSubmit = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
             <Library className="h-5 w-5 text-primary" />
-            Recipe Inventory
+            {S.recipeInventory.title}
           </CardTitle>
           <CardDescription>
-            Add your favorite recipes to be considered in meal suggestions
+            {S.recipeInventory.description}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <Label>{S.recipeInventory.labelUpload}</Label>
+            <label
+              htmlFor="recipe-file-upload"
+              className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/50 p-6 cursor-pointer hover:border-primary/50 hover:bg-muted transition-colors"
+            >
+              {isParsingRecipeUpload ? (
+                <>
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                  <span className="text-sm text-muted-foreground">{S.recipeInventory.analyzing}</span>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <CloudUpload className="h-6 w-6 text-muted-foreground" />
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                    <FileText className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <span className="text-sm font-medium">{S.recipeInventory.uploadHint}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {S.recipeInventory.uploadSubHint}
+                  </span>
+                </>
+              )}
+              <input
+                id="recipe-file-upload"
+                type="file"
+                accept="image/*,.pdf,.txt,application/pdf,text/plain"
+                multiple
+                className="hidden"
+                onChange={handleRecipeFileUpload}
+                disabled={isParsingRecipeUpload}
+              />
+            </label>
+            {recipeInventoryImages.length > 0 && (
+              <div className="space-y-2">
+                <Label>{S.recipeInventory.uploadedImages(recipeInventoryImages.length)}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {recipeInventoryImages.map((img) => (
+                    <div
+                      key={img.id}
+                      className="relative group rounded-lg overflow-hidden border"
+                    >
+                      <img
+                        src={img.preview || "/placeholder.svg"}
+                        alt={img.name}
+                        className="h-20 w-20 object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeRecipeImage(img.id)}
+                        className="absolute top-1 right-1 rounded-full bg-background/80 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">{S.recipeInventory.orTypeBelow}</span>
+            </div>
+          </div>
           <div className="space-y-2">
-            <Label htmlFor="newRecipe">Add a recipe</Label>
+            <Label htmlFor="newRecipe">{S.recipeInventory.labelAddRecipe}</Label>
             <div className="flex gap-2">
               <Textarea
                 id="newRecipe"
-                placeholder="Enter a recipe name or describe it (e.g., 'Grandma's chicken soup with vegetables and noodles' or 'Spicy Korean bibimbap with gochujang sauce')..."
+                placeholder={S.recipeInventory.placeholderRecipe}
                 value={currentRecipe}
                 onChange={(e) => setCurrentRecipe(e.target.value)}
                 onKeyDown={(e) => {

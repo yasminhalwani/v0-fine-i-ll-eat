@@ -46,12 +46,18 @@ export const PREFERENCES_FORM_STRINGS = {
   // Recipe Inventory
   recipeInventory: {
     title: "Recipe Inventory",
-    description: "Add your favorite recipes to be considered in meal suggestions",
+    description: "Add your favorite recipes to be considered in meal suggestions — upload images, PDFs, or text, or type below",
+    labelUpload: "Upload recipes",
+    uploadHint: "Images, PDF, or text files",
+    uploadSubHint: "Recipe lists, cookbook pages, or any document with recipe names",
+    analyzing: "Extracting recipes…",
+    orTypeBelow: "or type below",
     labelAddRecipe: "Add a recipe",
     placeholderRecipe:
       "Enter a recipe name or describe it (e.g., 'Grandma's chicken soup with vegetables and noodles' or 'Spicy Korean bibimbap with gochujang sauce')...",
     hintRecipes: "Press Enter or click + to add. These recipes will be considered when generating your meal plan.",
     yourSavedRecipes: (count: number) => `Your Saved Recipes (${count})`,
+    uploadedImages: (count: number) => `Uploaded (${count})`,
   },
 
   // Meal Examples & Notes
