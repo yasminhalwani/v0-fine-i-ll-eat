@@ -62,6 +62,7 @@ function createEatingOutMeal(mealType: "breakfast" | "lunch" | "dinner"): Meal {
     servings: 1,
     tags: ["Eating Out"],
     ingredients: [],
+    directions: undefined,
     mealType,
     cuisine: [],
     proteinSources: [],

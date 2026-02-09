@@ -3,8 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Clock, Users, Sparkles, UtensilsCrossed } from "lucide-react";
-
+import { RefreshCw, Clock, Users, Sparkles, UtensilsCrossed, ListOrdered, Flame, ChevronDown } from "lucide-react";
 
 export interface Meal {
   id: string;
@@ -14,6 +13,13 @@ export interface Meal {
   servings: number;
   tags: string[];
   ingredients: string[];
+  /** Step-by-step directions (optional; from LLM plans). */
+  directions?: string;
+  /** Per serving (optional). */
+  estimatedCalories?: number;
+  estimatedProtein?: number;
+  estimatedCarbs?: number;
+  estimatedFats?: number;
 }
 
 interface MealCardProps {
@@ -106,10 +112,10 @@ export function MealCard({ meal, mealType, onRegenerate, isRegenerating }: MealC
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground line-clamp-2">{meal.description}</p>
-        
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+
+        <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
           <div className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
             <span>{meal.prepTime}</span>
@@ -128,17 +134,62 @@ export function MealCard({ meal, mealType, onRegenerate, isRegenerating }: MealC
           ))}
         </div>
 
-        <details className="group">
-          <summary className="flex items-center gap-1 text-xs font-medium text-primary cursor-pointer hover:underline">
-            <Sparkles className="h-3 w-3" />
-            View ingredients
+        {/* Nutritional info — compact, readable */}
+        {(meal.estimatedCalories != null && meal.estimatedCalories > 0) ||
+        (meal.estimatedProtein != null && meal.estimatedProtein > 0) ? (
+          <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+            <p className="text-xs font-semibold text-foreground/90 mb-1.5 flex items-center gap-1">
+              <Flame className="h-3 w-3 text-primary" />
+              Nutrition (per serving)
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+              {meal.estimatedCalories != null && meal.estimatedCalories > 0 && (
+                <span>Calories: {meal.estimatedCalories} kcal</span>
+              )}
+              {meal.estimatedProtein != null && meal.estimatedProtein > 0 && (
+                <span>Protein: {meal.estimatedProtein}g</span>
+              )}
+              {meal.estimatedCarbs != null && meal.estimatedCarbs > 0 && (
+                <span>Carbs: {meal.estimatedCarbs}g</span>
+              )}
+              {meal.estimatedFats != null && meal.estimatedFats > 0 && (
+                <span>Fats: {meal.estimatedFats}g</span>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Ingredients */}
+        <details className="group rounded-lg border border-border/50 overflow-hidden">
+          <summary className="flex items-center gap-2 py-2 px-3 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/50 list-none">
+            <Sparkles className="h-3 w-3 text-primary shrink-0" />
+            <span>Ingredients</span>
+            <ChevronDown className="h-3 w-3 text-muted-foreground ml-auto group-open:rotate-180 transition-transform shrink-0" />
           </summary>
-          <ul className="mt-2 text-xs text-muted-foreground space-y-1 pl-4">
-            {meal.ingredients.map((ingredient, idx) => (
-              <li key={idx} className="list-disc">{ingredient}</li>
-            ))}
+          <ul className="border-t border-border/50 py-2 px-3 text-xs text-muted-foreground space-y-1 pl-5 list-disc">
+            {meal.ingredients.length > 0 ? (
+              meal.ingredients.map((ingredient, idx) => (
+                <li key={idx}>{ingredient}</li>
+              ))
+            ) : (
+              <li className="list-none text-muted-foreground/80">No ingredients listed.</li>
+            )}
           </ul>
         </details>
+
+        {/* Directions */}
+        {meal.directions && meal.directions.trim() ? (
+          <details className="group rounded-lg border border-border/50 overflow-hidden">
+            <summary className="flex items-center gap-2 py-2 px-3 text-xs font-medium text-foreground cursor-pointer hover:bg-muted/50 list-none">
+              <ListOrdered className="h-3 w-3 text-primary shrink-0" />
+              <span>Directions</span>
+              <ChevronDown className="h-3 w-3 text-muted-foreground ml-auto group-open:rotate-180 transition-transform shrink-0" />
+            </summary>
+            <div className="border-t border-border/50 py-2 px-3 text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+              {meal.directions.trim()}
+            </div>
+          </details>
+        ) : null}
       </CardContent>
     </Card>
   );

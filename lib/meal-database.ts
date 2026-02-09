@@ -7,6 +7,8 @@ export interface Meal {
   servings: number;
   tags: string[];
   ingredients: string[];
+  /** Step-by-step cooking instructions (numbered or newline-separated). */
+  directions?: string;
   mealType: "breakfast" | "lunch" | "dinner";
   cuisine: string[];
   proteinSources: string[];
@@ -720,6 +722,7 @@ export function coerceToMeal(obj: unknown, fallbackIdPrefix: string = "llm"): Me
     servings: Math.max(1, Math.floor(num(o.servings, 1))),
     tags: arr(o.tags),
     ingredients: arr(o.ingredients),
+    directions: str(o.directions, "").trim() || undefined,
     mealType: mealType(o.mealType),
     cuisine: arr(o.cuisine),
     proteinSources: arr(o.proteinSources),

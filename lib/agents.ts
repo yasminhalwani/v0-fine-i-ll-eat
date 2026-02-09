@@ -61,27 +61,35 @@ Provide a clear summary with these sections (use bullet points):
   return { agent: "dietician", input, output };
 }
 
-/** Chef: doctor + dietician + taste preferences → recipe suggestions for the week (no reality constraints). */
+/** Chef: doctor + dietician + taste preferences + USER RECIPE INVENTORY FIRST → recipe suggestions for the week (no reality constraints). */
 export async function runChef(
   prefs: MealPreferences,
   doctorOutput: string,
   dieticianOutput: string
 ): Promise<AgentStep> {
+  const recipeInventoryList = prefs.recipeInventory?.length
+    ? prefs.recipeInventory.join("\n- ")
+    : "None";
   const tastePart = [
+    `USER'S RECIPE INVENTORY (prioritize these first):\n- ${recipeInventoryList}`,
     `Preferred cuisines: ${prefs.cuisines?.length ? prefs.cuisines.join(", ") : "Any"}`,
     `Cuisine notes: ${prefs.cuisineNotes || "None"}`,
     `Preferred protein sources: ${prefs.proteinSources?.length ? prefs.proteinSources.join(", ") : "Any"}`,
     `Preferred carb sources: ${prefs.carbSources?.length ? prefs.carbSources.join(", ") : "Any"}`,
     `Preferred fat sources: ${prefs.fatSources?.length ? prefs.fatSources.join(", ") : "Any"}`,
-    `Recipe inventory (meals they can make): ${prefs.recipeInventory?.length ? prefs.recipeInventory.join(", ") : "None"}`,
     `Example meals they like: ${prefs.mealExamples || "None"}`,
   ].join("\n");
-  const input = `Doctor's guidance:\n---\n${doctorOutput}\n---\n\nDietician's recommendations:\n---\n${dieticianOutput}\n---\n\nTaste preferences:\n---\n${tastePart}\n---`;
+  const input = `Doctor's guidance:\n---\n${doctorOutput}\n---\n\nDietician's recommendations:\n---\n${dieticianOutput}\n---\n\nTaste preferences and user recipes:\n---\n${tastePart}\n---`;
   const prompt = `You are a chef. Using the doctor's guidance, the dietician's recommendations, and the user's taste preferences, suggest a set of recipes that could cover a full week (7 breakfasts, 7 lunches, 7 dinners). Do NOT yet consider fridge inventory, cooking time limits, or eating out—only medical, dietary, and taste fit.
+
+PRIORITY RULES:
+1. **Prioritize the user's recipe inventory first.** The user has listed recipes they know or want to make. Use these as your primary source. Assign as many of the 21 slots as possible to recipes from the user's list (matching meal type: breakfast/lunch/dinner where it makes sense).
+2. **Complete incomplete user recipes.** If a user recipe is just a name or vague (e.g. "Grandma's soup" or "chicken something"), expand it into a full recipe idea: give it a clear name, a one-line description, and note any obvious ingredients or variations so the planner can turn it into a complete recipe later. If the user's recipe is already detailed, keep that and just pass it through.
+3. **Only then add external recipes.** For any remaining slots after fitting in the user's recipes, suggest other recipes that match doctor/dietician guidance and taste preferences.
 
 ${input}
 
-Provide a list of recipe suggestions for the week. For each suggestion give: meal type (breakfast/lunch/dinner), recipe name, and a one-line description. You can suggest 21 distinct ideas or repeat some (e.g. "Oatmeal" twice for breakfast). Format as clear bullet points or a simple list. Do not output JSON yet—this is just recipe ideas for the planner to use.`;
+Provide a list of recipe suggestions for the week. For each suggestion give: meal type (breakfast/lunch/dinner), recipe name, and a one-line description. Prefer and list the user's recipe inventory items first (completed or expanded as needed), then fill the rest with your own ideas. You can repeat a recipe in multiple slots (e.g. "Oatmeal" twice for breakfast). Format as clear bullet points or a simple list. Do not output JSON yet—this is just recipe ideas for the planner to use.`;
 
   const output = await promptLlm(prompt);
   return { agent: "chef", input, output };
@@ -125,10 +133,19 @@ Rules:
 5. When cookTimesPerWeek is less than 7, suggest batch-cooking (same meal name for 2+ slots where appropriate).
 6. Respect ingredient variety preference: lower (1–2) = reuse the same ingredients across many recipes to save money and reduce shopping; higher (4–5) = use more different ingredients for variety.
 7. Output exactly 21 meals: 7 breakfasts (indices 0–6), then 7 lunches (7–13), then 7 dinners (14–20).
+8. **Each meal must be a complete recipe** with ingredients, step-by-step directions, and nutritional info so the user can cook it.
 
 Output format — respond with a single JSON object (no markdown, no code fence) with exactly these three keys:
 
-1. "meals": an array of exactly 21 meal objects. Each meal must have: id (string, e.g. "bf-1", "ln-1", "dn-1"), name, description, prepTime, servings (1 or more), tags (array), ingredients (array), mealType ("breakfast"|"lunch"|"dinner"), cuisine (array), proteinSources, carbSources, fatSources, estimatedCalories, estimatedProtein, estimatedCarbs, estimatedFats, containsAllergens (array), dietaryRestrictions (array), medicalFriendly (array), medicationSafe (array).
+1. "meals": an array of exactly 21 meal objects. Each meal must have:
+   - id (string, e.g. "bf-1", "ln-1", "dn-1")
+   - name, description, prepTime, servings (1 or more), tags (array)
+   - mealType ("breakfast"|"lunch"|"dinner"), cuisine (array)
+   - **ingredients** (array of strings, e.g. ["2 eggs", "1 slice bread", "Salt"])
+   - **directions** (string: step-by-step instructions, numbered or newline-separated, e.g. "1. Beat eggs. 2. Heat pan...")
+   - **Nutritional info**: estimatedCalories (number), estimatedProtein (grams), estimatedCarbs (grams), estimatedFats (grams)
+   - proteinSources, carbSources, fatSources (arrays)
+   - containsAllergens (array), dietaryRestrictions (array), medicalFriendly (array), medicationSafe (array)
 
 2. "cookSchedule": a string explaining WHEN to cook. For each day (Monday–Sunday), list which meals are cooked that day vs eaten out or from leftovers. Example: "Monday: cook breakfast and dinner; lunch is leftovers. Tuesday: cook lunch only; breakfast from Monday batch, dinner out. Wednesday: ..."
 
